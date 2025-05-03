@@ -1,62 +1,43 @@
-import streamlit as st
-import random
+import streamlit as st import random
 
-st.title("Aviator Prediction - Probabiliste Fiable")
+st.set_page_config(page_title="Rolling Prediction Aviator", layout="centered")
 
-# Saisie automatique an'ireo multiplicateurs 5 farany
-multipliers_input = st.text_input("Multiplicateurs 5 farany (misaraka amin'ny virgule)", "1.05,2.00,1.52,1.52,3.49")
-last_tour = st.number_input("Numéro du dernier tour (ex: 66)", value=66, step=1)
-seed_value = st.number_input("Seed (ex: 20250502)", value=20250502, step=1)
+st.title("Rolling Prediction - Aviator Game")
 
-# Traitement
-def extract_digits(multis):
-    digits = []
-    for m in multis:
-        parts = str(m).split(".")
-        if len(parts) == 2:
-            digits += [int(x) for x in parts[1]]
-    return digits
+Input zone
 
-def prediction_analysis(multis, seed):
-    digits = extract_digits(multis)
-    random.seed(seed)
-    rng = [random.randint(0,9) for _ in range(len(digits))]
-    results = [(d + r) % 10 for d, r in zip(digits, rng)]
+st.markdown("### Entrer les 5 derniers multiplicateurs") mults_input = st.text_input("Ex: 1.05, 2.00, 1.52, 1.52, 3.49")
 
-    # Analyse tendance
-    count_high = sum(1 for d in results if d >= 7)
-    count_mid = sum(1 for d in results if 4 <= d <= 6)
+if mults_input: try: mults = [float(m.strip()) for m in mults_input.split(",") if m.strip()] if len(mults) < 5: st.warning("Veuillez entrer au moins 5 multiplicateurs.") else: # STEP 1 - Extraction des chiffres après virgule digits = [] for m in mults: m_str = str(m).replace(".", "") digits.extend([int(c) for c in m_str])
 
-    crash = count_high <= 1
-    x5_possible = count_high >= 2 and count_high <= 3
-    x10_possible = count_high >= 4
+# Seed simulation
+        seed = int("20250503")
+        random.seed(seed)
+        rng_digits = [random.randint(0, 9) for _ in range(len(digits))]
 
-    return results, crash, x5_possible, x10_possible
+        # Addition mod 10
+        final = [(a + b) % 10 for a, b in zip(digits, rng_digits)]
 
-# Execution
-try:
-    multipliers = [float(x.strip()) for x in multipliers_input.split(",")]
-    if len(multipliers) == 5:
-        results, crash, x5, x10 = prediction_analysis(multipliers, seed_value)
+        # Rolling prédiction (3 seeds)
+        rolling_predictions = []
+        for i in range(0, len(final) - 9, 3):
+            segment = final[i:i+10]
+            if len(segment) == 10:
+                count_high = sum(1 for v in segment if v >= 7)
+                count_low = sum(1 for v in segment if v <= 3)
+                tendance = "X5+" if count_high >= 3 else ("Crash" if count_low >= 5 else "Stable")
+                proba = round((count_high / 10) * 100) if tendance == "X5+" else round((count_low / 10) * 100) if tendance == "Crash" else 60
 
-        # Numéros de tours à venir
-        T1 = last_tour + 1
-        T2 = last_tour + 2
-        T3 = last_tour + 3
+                rolling_predictions.append({
+                    "Tour": f"T{67 + i//3}",
+                    "Tendance": tendance,
+                    "Probabilité": f"{proba}%"
+                })
 
-        st.markdown(f"### Résultats calculés : T{T1} → T{T3}")
-        if crash:
-            st.error("**Crash probable** dans les prochaines 3 tours.")
-        elif x10:
-            st.success(f"**Haute probabilité** de X10 entre T{T1}/T{T2}/T{T3}")
-        elif x5:
-            st.warning(f"**Possibilité de X5** entre T{T1}/T{T2}/T{T3}")
-        else:
-            st.info("**Tendance moyenne** – Prépare stratégie ou attendre.")
+        # Affichage tableau
+        st.markdown("### Résultats")
+        st.table(rolling_predictions)
 
-        st.markdown(f"**Numéros de Tours analysés:** {last_tour - 4} à {last_tour}")
-        st.markdown(f"**Multiplicateurs Entrés:** {multipliers}")
-    else:
-        st.warning("Ampidiro tsara ny 5 multiplicateurs farany.")
-except:
-    st.error("Olana tamin'ny fanodinana ny angona. Zahao tsara ny format.")
+except Exception as e:
+    st.error(f"Erreur de traitement: {e}")
+
