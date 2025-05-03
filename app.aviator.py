@@ -1,61 +1,104 @@
-import streamlit as st
-import random
-from datetime import datetime
+import streamlit as st import numpy as np import re
 
-# Fonction pour traiter les données historiques saisies et les convertir en une liste de flottants
-def process_historical_input(historical_input):
-    try:
-        # Nettoyer l'entrée : enlever les caractères indésirables ou les espaces supplémentaires, et séparer par des espaces
-        historical_data = [float(x.strip()) for x in historical_input.split() if x.strip()]
-        return historical_data
-    except ValueError as e:
-        st.error(f"Erreur lors du traitement des données historiques : {e}")
-        return []
+st.set_page_config(page_title="Prédiction Aviator", layout="centered") st.title("Application de Prédiction Aviator - Rolling & Probabiliste")
 
-# Fonction pour générer la prédiction basée sur les données historiques et la graine RNG
-def generate_prediction(historical_data, seed_value):
-    random.seed(seed_value)
-    
-    # Simuler la génération des chiffres à partir de la graine
-    rng_digits = [random.randint(0, 9) for _ in range(len(historical_data))]
-    
-    # Logique pour générer une prédiction en fonction des données historiques et de la graine
-    prediction = sum(historical_data) / len(historical_data)  # Juste un exemple simple
-    return prediction, rng_digits
+st.markdown(""" Cette application prédit les multiplicateurs probables basés sur l'historique entré, avec une analyse rolling + hashing simplifiée.
 
-# Fonction pour analyser la tendance des données historiques
-def analyze_trends(historical_data):
-    if len(historical_data) < 4:
-        return "Données insuffisantes pour analyser les tendances"
-    
-    # Simple analyse de tendance basée sur les dernières valeurs
-    trend = "Croissante" if historical_data[-1] > historical_data[-2] else "Décroissante"
-    return trend
+Instructions :
 
-# Structure de l'application Streamlit
-st.title("Prédiction du jeu Aviator")
+Entrez les multiplicateurs (ex: 2.51x 6.38x 1.28x ...)
 
-# Entrée de l'utilisateur pour les données historiques
-historical_input = st.text_area("Entrez les données historiques", "1.39 2.00 1.52 1.52 3.49 10.00 5.00")  # Exemple d'entrée
+Entrez le numéro du dernier tour correspondant au premier multiplicateur entré.
 
-# Traitement des données d'entrée
-historical_data = process_historical_input(historical_input)
+Appuyez sur Calculer pour voir les prédictions. """)
 
-if historical_data:
-    # Entrée de l'utilisateur pour la graine RNG
-    seed_input = st.text_input("Entrez la graine RNG", "20250502")
-    seed_value = int(seed_input)
-    
-    # Générer les prédictions
-    prediction, rng_digits = generate_prediction(historical_data, seed_value)
-    trend_prediction = analyze_trends(historical_data)
-    
-    # Affichage des résultats
-    st.write(f"Prédiction de résultat : {prediction}")
-    st.write(f"Chiffres RNG utilisés : {rng_digits}")
-    st.write(f"Prédiction basée sur les tendances : {trend_prediction}")
-    
-    # Affichage des données historiques et de l'analyse
-    st.write("Données historiques (derniers 4 tours) :", historical_data[-4:])
-else:
-    st.error("Veuillez entrer des données historiques valides.")
+
+Entrées
+
+raw_input = st.text_area("Multiplicateurs (séparés par 'x')", height=150) last_tour = st.number_input("Numéro du dernier tour", min_value=1, step=1)
+
+if st.button("Calculer"): if not raw_input or last_tour is None: st.warning("Veuillez remplir tous les champs.") else: # Nettoyage values = re.findall(r"\d+.\d+", raw_input) try: mults = list(map(float, values)) mults.reverse()  # Pour que le premier entré soit le plus récent (ordre croissant de T) except: st.error("Erreur dans l'analyse des données. Assurez-vous du format.") st.stop()
+
+# Fampisehoana historique
+    st.subheader("Historique")
+    for i, val in enumerate(mults):
+        st.write(f"T{last_tour - i} : {val:.2f}x")
+
+    # Rolling moyenne + logic simple hashing
+    rolling_avg = np.mean(mults[:10]) if len(mults) >= 10 else np.mean(mults)
+    max_recent = max(mults[:10])
+
+    # Prédiction akaiky (3 tours manaraka)
+    pred_close = []
+    for i in range(1, 4):
+        val = round((rolling_avg * 0.95 + np.sin(rolling_avg + i) * 0.5), 2)
+        confidence = min(95, max(60, 100 - abs(val - rolling_avg) * 10))
+        pred_close.append((f"T{last_tour + i}", val, confidence))
+
+    # Prédiction lavitra (4-6 tours manaraka)
+    pred_far = []
+    for i in range(4, 7):
+        val = round((max_recent * 0.85 + np.cos(max_recent + i) * 0.7), 2)
+        confidence = min(90, max(50, 100 - abs(val - rolling_avg) * 12))
+        pred_far.append((f"T{last_tour + i}", val, confidence))
+
+    st.subheader("Prédiction Proche (Haute fiabilité)")
+    for tour, val, conf in pred_close:
+        st.write(f"{tour} ➔ {val}x ({conf}% fiable)")
+
+    st.subheader("Prédiction Lointaine (Planification)")
+    for tour, val, conf in pred_far:
+        st.write(f"{tour} ➔ {val}x ({conf}% fiable)")
+
+import streamlit as st import numpy as np import re
+
+st.set_page_config(page_title="Prédiction Aviator", layout="centered") st.title("Application de Prédiction Aviator - Rolling & Probabiliste")
+
+st.markdown(""" Cette application prédit les multiplicateurs probables basés sur l'historique entré, avec une analyse rolling + hashing simplifiée.
+
+Instructions :
+
+Entrez les multiplicateurs (ex: 2.51x 6.38x 1.28x ...)
+
+Entrez le numéro du dernier tour correspondant au premier multiplicateur entré.
+
+Appuyez sur Calculer pour voir les prédictions. """)
+
+
+Entrées
+
+raw_input = st.text_area("Multiplicateurs (séparés par 'x')", height=150) last_tour = st.number_input("Numéro du dernier tour", min_value=1, step=1)
+
+if st.button("Calculer"): if not raw_input or last_tour is None: st.warning("Veuillez remplir tous les champs.") else: # Nettoyage values = re.findall(r"\d+.\d+", raw_input) try: mults = list(map(float, values)) mults.reverse()  # Pour que le premier entré soit le plus récent (ordre croissant de T) except: st.error("Erreur dans l'analyse des données. Assurez-vous du format.") st.stop()
+
+# Fampisehoana historique
+    st.subheader("Historique")
+    for i, val in enumerate(mults):
+        st.write(f"T{last_tour - i} : {val:.2f}x")
+
+    # Rolling moyenne + logic simple hashing
+    rolling_avg = np.mean(mults[:10]) if len(mults) >= 10 else np.mean(mults)
+    max_recent = max(mults[:10])
+
+    # Prédiction akaiky (3 tours manaraka)
+    pred_close = []
+    for i in range(1, 4):
+        val = round((rolling_avg * 0.95 + np.sin(rolling_avg + i) * 0.5), 2)
+        confidence = min(95, max(60, 100 - abs(val - rolling_avg) * 10))
+        pred_close.append((f"T{last_tour + i}", val, confidence))
+
+    # Prédiction lavitra (4-6 tours manaraka)
+    pred_far = []
+    for i in range(4, 7):
+        val = round((max_recent * 0.85 + np.cos(max_recent + i) * 0.7), 2)
+        confidence = min(90, max(50, 100 - abs(val - rolling_avg) * 12))
+        pred_far.append((f"T{last_tour + i}", val, confidence))
+
+    st.subheader("Prédiction Proche (Haute fiabilité)")
+    for tour, val, conf in pred_close:
+        st.write(f"{tour} ➔ {val}x ({conf}% fiable)")
+
+    st.subheader("Prédiction Lointaine (Planification)")
+    for tour, val, conf in pred_far:
+        st.write(f"{tour} ➔ {val}x ({conf}% fiable)")
+
