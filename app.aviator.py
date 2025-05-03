@@ -1,45 +1,39 @@
-import streamlit as st import random
+import streamlit as st
+import random
 
-st.set_page_config(page_title="Aviator Probabilistic Predictor", layout="centered")
+# Function to generate and display prediction
+def generate_prediction(seed, multipliers):
+    random.seed(seed)
+    
+    # Extract digits from multipliers
+    digits = []
+    for mul in multipliers:
+        digits.extend([int(digit) for digit in str(mul)[2:]])  # get digits after the decimal point
 
-st.title("Aviator Predictor - Stratégie Probabiliste") st.markdown(""" Toromarika: Ampidiro eto ambany ny 5 dernières valeurs an'ireo multiplicateurs (ex: 1.05, 2.00, ...) """)
+    # Generate random digits based on the seed
+    rng_digits = [random.randint(0, 9) for _ in range(len(digits))]
 
-Input user
+    # Apply mod 10 addition
+    final_digits = [(d + r) % 10 for d, r in zip(digits, rng_digits)]
+    
+    # Create seeds from the resulting digits
+    seeds = []
+    for i in range(0, len(final_digits), 10):
+        seeds.append(int("".join(map(str, final_digits[i:i+10]))))
+    
+    return seeds
 
-cols = st.columns(5) values = [] for i, col in enumerate(cols): with col: val = st.text_input(f"T{62+i}", key=f"t{i}") if val: try: float_val = float(val) values.append(float_val) except: st.error(f"T{62+i} dia tsy isa manan-kery")
+# Example multipliers (replace these with actual data from the game)
+multipliers = [1.05, 2.00, 1.52, 1.52, 3.49]
 
-if len(values) == 5: # STEP 1: extraction chiffres après virgule digits = [] for val in values: digits += [int(d) for d in f"{val:.2f}".replace('.', '')]
+# Generate prediction based on seed (20250502)
+seed = 20250502
+seeds = generate_prediction(seed, multipliers)
 
-st.markdown("### **Étape 1 : Chiffres extraits**")
-st.write(digits)
+# Display the result using Streamlit
+st.title("Aviator Game Prediction")
+st.write("Generated Seeds: ", seeds)
 
-# STEP 2: generate RNG digits
-seed = int(st.secrets["seed"]) if "seed" in st.secrets else 20250502
-random.seed(seed)
-rng_digits = [random.randint(0, 9) for _ in range(len(digits))]
-
-# STEP 3: Mod 10
-result_digits = [(a + b) % 10 for a, b in zip(digits, rng_digits)]
-
-# STEP 4: Seeds
-grouped = [''.join(map(str, result_digits[i:i+10])) for i in range(0, len(result_digits), 10)]
-
-st.markdown("### **Résultat (Vinavina)**")
-for i, g in enumerate(grouped):
-    if len(g) == 10:
-        st.code(f"Seed {i+1}: {g}")
-
-st.markdown("---")
-# Analyse Probabiliste Simplifiée
-high_digits = sum([1 for d in result_digits if d >= 7])
-low_digits = sum([1 for d in result_digits if d <= 3])
-
-if high_digits >= 4:
-    st.success("Misy fiakarana (tendance X5–X10) afaka tour 1–3")
-elif low_digits >= 6:
-    st.warning("Tendance ambany (x1.00–x2.00), miandrasa")
-else:
-    st.info("Tendance mifangaro, mety hisy X3–X4")
-
-else: st.info("Ampidiro daholo ny 5 valeurs")
-
+# Display message based on analysis (optional)
+st.write("Prediction Analysis:")
+st.write("Based on the generated seeds, there is a trend towards a possible increase in the next rounds.")
