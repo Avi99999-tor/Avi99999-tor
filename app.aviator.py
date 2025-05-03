@@ -2,52 +2,60 @@ import streamlit as st
 import random
 from datetime import datetime
 
-# Function to generate predictions based on RNG and historical data
+# Fonction pour traiter les données historiques saisies et les convertir en une liste de flottants
+def process_historical_input(historical_input):
+    try:
+        # Nettoyer l'entrée : enlever les caractères indésirables ou les espaces supplémentaires, et séparer par des espaces
+        historical_data = [float(x.strip()) for x in historical_input.split() if x.strip()]
+        return historical_data
+    except ValueError as e:
+        st.error(f"Erreur lors du traitement des données historiques : {e}")
+        return []
+
+# Fonction pour générer la prédiction basée sur les données historiques et la graine RNG
 def generate_prediction(historical_data, seed_value):
     random.seed(seed_value)
     
-    # Extract the last few digits from the historical data (last 3-4 tours)
-    last_data = [round(data % 10) for data in historical_data[-4:]]  # Example: take last 4 multipliers
-
-    # Generate RNG sequence for predictions
-    rng_digits = [random.randint(0, 9) for _ in range(10)]
+    # Simuler la génération des chiffres à partir de la graine
+    rng_digits = [random.randint(0, 9) for _ in range(len(historical_data))]
     
-    # Summing the RNG and historical data with Mod 10 for prediction
-    combined_data = [(x + y) % 10 for x, y in zip(last_data, rng_digits)]
-    
-    # Result prediction: Use mod 10 logic or statistical model here
-    prediction = "X" + str(sum(combined_data) % 10)  # Simplified logic for demonstration
-
+    # Logique pour générer une prédiction en fonction des données historiques et de la graine
+    prediction = sum(historical_data) / len(historical_data)  # Juste un exemple simple
     return prediction, rng_digits
 
-# Function to analyze historical trends and output the next possible prediction
+# Fonction pour analyser la tendance des données historiques
 def analyze_trends(historical_data):
-    last_multiplier = historical_data[-1]
+    if len(historical_data) < 4:
+        return "Données insuffisantes pour analyser les tendances"
     
-    if last_multiplier > 5:
-        prediction = "X10"
-    else:
-        prediction = "X5"
+    # Simple analyse de tendance basée sur les dernières valeurs
+    trend = "Croissante" if historical_data[-1] > historical_data[-2] else "Décroissante"
+    return trend
+
+# Structure de l'application Streamlit
+st.title("Prédiction du jeu Aviator")
+
+# Entrée de l'utilisateur pour les données historiques
+historical_input = st.text_area("Entrez les données historiques", "1.39 2.00 1.52 1.52 3.49 10.00 5.00")  # Exemple d'entrée
+
+# Traitement des données d'entrée
+historical_data = process_historical_input(historical_input)
+
+if historical_data:
+    # Entrée de l'utilisateur pour la graine RNG
+    seed_input = st.text_input("Entrez la graine RNG", "20250502")
+    seed_value = int(seed_input)
     
-    return prediction
-
-# Streamlit app structure
-st.title("Aviator Game Prediction")
-
-# User inputs
-historical_input = st.text_area("Enter Historical Data", "1.39 2.00 1.52 1.52 3.49 10.00 5.00")  # Example input
-historical_data = [float(x) for x in historical_input.split()]
-seed_input = st.text_input("Enter RNG Seed", "20250502")
-
-# Process inputs
-seed_value = int(seed_input)
-prediction, rng_digits = generate_prediction(historical_data, seed_value)
-trend_prediction = analyze_trends(historical_data)
-
-# Displaying predictions
-st.write(f"Predicted Outcome: {prediction}")
-st.write(f"RNG Digits Used: {rng_digits}")
-st.write(f"Trend Based Prediction: {trend_prediction}")
-
-# Display historical data and analysis
-st.write("Historical Data (Last 4 Tours):", historical_data[-4:])
+    # Générer les prédictions
+    prediction, rng_digits = generate_prediction(historical_data, seed_value)
+    trend_prediction = analyze_trends(historical_data)
+    
+    # Affichage des résultats
+    st.write(f"Prédiction de résultat : {prediction}")
+    st.write(f"Chiffres RNG utilisés : {rng_digits}")
+    st.write(f"Prédiction basée sur les tendances : {trend_prediction}")
+    
+    # Affichage des données historiques et de l'analyse
+    st.write("Données historiques (derniers 4 tours) :", historical_data[-4:])
+else:
+    st.error("Veuillez entrer des données historiques valides.")
