@@ -2,58 +2,52 @@ import streamlit as st
 import random
 from datetime import datetime
 
-st.set_page_config(page_title="Aviator Prediction", layout="centered")
+# Function to generate predictions based on RNG and historical data
+def generate_prediction(historical_data, seed_value):
+    random.seed(seed_value)
+    
+    # Extract the last few digits from the historical data (last 3-4 tours)
+    last_data = [round(data % 10) for data in historical_data[-4:]]  # Example: take last 4 multipliers
 
-st.title("Aviator Game Prediction — Rolling Version")
-st.markdown("**Version probabiliste simple avec prédiction sur les 3-5 tours suivants.**")
+    # Generate RNG sequence for predictions
+    rng_digits = [random.randint(0, 9) for _ in range(10)]
+    
+    # Summing the RNG and historical data with Mod 10 for prediction
+    combined_data = [(x + y) % 10 for x, y in zip(last_data, rng_digits)]
+    
+    # Result prediction: Use mod 10 logic or statistical model here
+    prediction = "X" + str(sum(combined_data) % 10)  # Simplified logic for demonstration
 
-# Input du dernier multiplicateur
-dernier_tour = st.number_input("Dernier numéro de tour connu (ex: 70)", min_value=0, step=1)
-multiplicateurs_input = st.text_input("Derniers multiplicateurs (5 valeurs séparées par des virgules)", value="1.05,2.00,1.52,1.52,3.49")
+    return prediction, rng_digits
 
-# Traitement
-if st.button("Prédire les prochains tours"):
-    try:
-        multipliers = [float(x.strip()) for x in multiplicateurs_input.split(",") if x.strip()]
-        digits = []
+# Function to analyze historical trends and output the next possible prediction
+def analyze_trends(historical_data):
+    last_multiplier = historical_data[-1]
+    
+    if last_multiplier > 5:
+        prediction = "X10"
+    else:
+        prediction = "X5"
+    
+    return prediction
 
-        for m in multipliers:
-            int_str = str(m).replace('.', '')
-            digits.extend([int(c) for c in int_str])
+# Streamlit app structure
+st.title("Aviator Game Prediction")
 
-        # Seed automatique du jour
-        seed_value = int(datetime.now().strftime("%Y%m%d"))
-        random.seed(seed_value)
-        rng_digits = [random.randint(0, 9) for _ in range(len(digits))]
+# User inputs
+historical_input = st.text_area("Enter Historical Data", "1.39 2.00 1.52 1.52 3.49 10.00 5.00")  # Example input
+historical_data = [float(x) for x in historical_input.split()]
+seed_input = st.text_input("Enter RNG Seed", "20250502")
 
-        # Mod 10
-        mod10 = [(d + r) % 10 for d, r in zip(digits, rng_digits)]
+# Process inputs
+seed_value = int(seed_input)
+prediction, rng_digits = generate_prediction(historical_data, seed_value)
+trend_prediction = analyze_trends(historical_data)
 
-        # Groupement (10 par 10)
-        seeds = [mod10[i:i + 10] for i in range(0, len(mod10), 10)]
+# Displaying predictions
+st.write(f"Predicted Outcome: {prediction}")
+st.write(f"RNG Digits Used: {rng_digits}")
+st.write(f"Trend Based Prediction: {trend_prediction}")
 
-        st.subheader("Résultat de l’analyse")
-        for i, group in enumerate(seeds):
-            seed_number = "".join(map(str, group))
-            st.text(f"Seed {i + 1}: {seed_number}")
-
-        # Analyse tendance
-        st.subheader("Prédiction des tours suivants")
-
-        predictions = []
-        for i in range(3):
-            next_tour = dernier_tour + 3 + i
-            sub = mod10[-10 + i:] if len(mod10) >= 10 else mod10
-            chance_haute = sub.count(8) + sub.count(9)
-            if chance_haute >= 2:
-                predictions.append((next_tour, "Possible x5/x10"))
-            else:
-                predictions.append((next_tour, "Probable crash (<x2)"))
-
-        for t, pred in predictions:
-            st.markdown(f"**T{t}** —> {pred}")
-
-        st.info(f"Seed utilisée: `{seed_value}` — Tendance en cours évaluée sur {len(digits)} chiffres.")
-
-    except Exception as e:
-        st.error(f"Erreur lors de l’analyse: {e}")
+# Display historical data and analysis
+st.write("Historical Data (Last 4 Tours):", historical_data[-4:])
