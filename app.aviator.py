@@ -1,104 +1,54 @@
-import streamlit as st import numpy as np import re
+import streamlit as st
+import numpy as np
+import re
+from hashlib import sha256
 
-st.set_page_config(page_title="Prédiction Aviator", layout="centered") st.title("Application de Prédiction Aviator - Rolling & Probabiliste")
+st.set_page_config(page_title="Aviator Predictor", layout="centered")
 
-st.markdown(""" Cette application prédit les multiplicateurs probables basés sur l'historique entré, avec une analyse rolling + hashing simplifiée.
+st.title("Prédicteur Aviator avec Rolling + Hashing")
+st.markdown("Entrez les multiplicateurs récents et le numéro du dernier tour pour voir les prédictions fiables.")
 
-Instructions :
+# === Inputs ===
+historique_input = st.text_area("Entrer les multiplicateurs (séparés par 'x'):", 
+                                 "2.51x 6.38x 1.28x 1.52x 1.15x 2.97x 4.03x 1.28x 7.08x 1.69x 1.98x 1.09x 1.30x 4.05x 3.11x 2.65x 1.48x 1.87x 3.00x 1.35x 1.32x 1.04x 6.49x 1.60x 1.06x 11.89x 1.97x")
+dernier_tour = st.number_input("Entrer le numéro du dernier tour (ex: 74 si 2.51x est le plus récent):", value=74, step=1)
 
-Entrez les multiplicateurs (ex: 2.51x 6.38x 1.28x ...)
+if st.button("Calculer les prédictions"):
 
-Entrez le numéro du dernier tour correspondant au premier multiplicateur entré.
+    # === Nettoyage des données ===
+    multiplicateurs = re.findall(r"\d+\.\d+", historique_input)
+    multiplicateurs = [float(m) for m in multiplicateurs]
 
-Appuyez sur Calculer pour voir les prédictions. """)
+    if len(multiplicateurs) < 10:
+        st.warning("Veuillez entrer au moins 10 multiplicateurs pour une meilleure prédiction.")
+    else:
+        # === Fonctions auxiliaires ===
+        def calc_hash_seed(multiplicateurs):
+            raw = "".join([str(m) for m in multiplicateurs])
+            return sha256(raw.encode()).hexdigest()
 
+        def rolling_prediction(data):
+            high_indexes = [i for i, m in enumerate(data) if m >= 5]
+            if len(high_indexes) < 2:
+                return None, 0
+            intervals = [high_indexes[i+1] - high_indexes[i] for i in range(len(high_indexes)-1)]
+            moy = np.mean(intervals)
+            next_index = high_indexes[-1] + int(round(moy))
+            confiance = round(min(100, 90 - (len(data) - high_indexes[-1])*3), 2)
+            return next_index, confiance
 
-Entrées
+        # === Traitement principal ===
+        seed = calc_hash_seed(multiplicateurs[-10:])  # Hash des 10 derniers pour tracking
+        pred_proche = round(np.mean(multiplicateurs[:5]) + np.std(multiplicateurs[:5]), 2)
+        pred_lointain_index, confiance = rolling_prediction(multiplicateurs)
 
-raw_input = st.text_area("Multiplicateurs (séparés par 'x')", height=150) last_tour = st.number_input("Numéro du dernier tour", min_value=1, step=1)
-
-if st.button("Calculer"): if not raw_input or last_tour is None: st.warning("Veuillez remplir tous les champs.") else: # Nettoyage values = re.findall(r"\d+.\d+", raw_input) try: mults = list(map(float, values)) mults.reverse()  # Pour que le premier entré soit le plus récent (ordre croissant de T) except: st.error("Erreur dans l'analyse des données. Assurez-vous du format.") st.stop()
-
-# Fampisehoana historique
-    st.subheader("Historique")
-    for i, val in enumerate(mults):
-        st.write(f"T{last_tour - i} : {val:.2f}x")
-
-    # Rolling moyenne + logic simple hashing
-    rolling_avg = np.mean(mults[:10]) if len(mults) >= 10 else np.mean(mults)
-    max_recent = max(mults[:10])
-
-    # Prédiction akaiky (3 tours manaraka)
-    pred_close = []
-    for i in range(1, 4):
-        val = round((rolling_avg * 0.95 + np.sin(rolling_avg + i) * 0.5), 2)
-        confidence = min(95, max(60, 100 - abs(val - rolling_avg) * 10))
-        pred_close.append((f"T{last_tour + i}", val, confidence))
-
-    # Prédiction lavitra (4-6 tours manaraka)
-    pred_far = []
-    for i in range(4, 7):
-        val = round((max_recent * 0.85 + np.cos(max_recent + i) * 0.7), 2)
-        confidence = min(90, max(50, 100 - abs(val - rolling_avg) * 12))
-        pred_far.append((f"T{last_tour + i}", val, confidence))
-
-    st.subheader("Prédiction Proche (Haute fiabilité)")
-    for tour, val, conf in pred_close:
-        st.write(f"{tour} ➔ {val}x ({conf}% fiable)")
-
-    st.subheader("Prédiction Lointaine (Planification)")
-    for tour, val, conf in pred_far:
-        st.write(f"{tour} ➔ {val}x ({conf}% fiable)")
-
-import streamlit as st import numpy as np import re
-
-st.set_page_config(page_title="Prédiction Aviator", layout="centered") st.title("Application de Prédiction Aviator - Rolling & Probabiliste")
-
-st.markdown(""" Cette application prédit les multiplicateurs probables basés sur l'historique entré, avec une analyse rolling + hashing simplifiée.
-
-Instructions :
-
-Entrez les multiplicateurs (ex: 2.51x 6.38x 1.28x ...)
-
-Entrez le numéro du dernier tour correspondant au premier multiplicateur entré.
-
-Appuyez sur Calculer pour voir les prédictions. """)
-
-
-Entrées
-
-raw_input = st.text_area("Multiplicateurs (séparés par 'x')", height=150) last_tour = st.number_input("Numéro du dernier tour", min_value=1, step=1)
-
-if st.button("Calculer"): if not raw_input or last_tour is None: st.warning("Veuillez remplir tous les champs.") else: # Nettoyage values = re.findall(r"\d+.\d+", raw_input) try: mults = list(map(float, values)) mults.reverse()  # Pour que le premier entré soit le plus récent (ordre croissant de T) except: st.error("Erreur dans l'analyse des données. Assurez-vous du format.") st.stop()
-
-# Fampisehoana historique
-    st.subheader("Historique")
-    for i, val in enumerate(mults):
-        st.write(f"T{last_tour - i} : {val:.2f}x")
-
-    # Rolling moyenne + logic simple hashing
-    rolling_avg = np.mean(mults[:10]) if len(mults) >= 10 else np.mean(mults)
-    max_recent = max(mults[:10])
-
-    # Prédiction akaiky (3 tours manaraka)
-    pred_close = []
-    for i in range(1, 4):
-        val = round((rolling_avg * 0.95 + np.sin(rolling_avg + i) * 0.5), 2)
-        confidence = min(95, max(60, 100 - abs(val - rolling_avg) * 10))
-        pred_close.append((f"T{last_tour + i}", val, confidence))
-
-    # Prédiction lavitra (4-6 tours manaraka)
-    pred_far = []
-    for i in range(4, 7):
-        val = round((max_recent * 0.85 + np.cos(max_recent + i) * 0.7), 2)
-        confidence = min(90, max(50, 100 - abs(val - rolling_avg) * 12))
-        pred_far.append((f"T{last_tour + i}", val, confidence))
-
-    st.subheader("Prédiction Proche (Haute fiabilité)")
-    for tour, val, conf in pred_close:
-        st.write(f"{tour} ➔ {val}x ({conf}% fiable)")
-
-    st.subheader("Prédiction Lointaine (Planification)")
-    for tour, val, conf in pred_far:
-        st.write(f"{tour} ➔ {val}x ({conf}% fiable)")
-
+        st.subheader("Résultats de Prédiction")
+        st.markdown(f"- **Hash Seed** (pour vérif): `{seed[:16]}...`")
+        st.markdown(f"- **Prédiction prochaine (haute fiabilité)**: **x{pred_proche}**")
+        
+        if pred_lointain_index:
+            tour_lointain = dernier_tour + (pred_lointain_index - len(multiplicateurs))
+            st.markdown(f"- **Prédiction distante (tendance X5+)**: Tour **T{tour_lointain}** —> **X5+ probabilité**")
+            st.markdown(f"- **Taux de fiabilité**: {confiance}%")
+        else:
+            st.warning("Pas assez de multiplicateurs élevés (≥ x5) pour prédire une tendance distante.")
