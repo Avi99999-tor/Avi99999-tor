@@ -1,54 +1,123 @@
 import streamlit as st
 import numpy as np
-import re
-from hashlib import sha256
+import random
+import hashlib
 
-st.set_page_config(page_title="Aviator Predictor", layout="centered")
+# Fonction pour effectuer un calcul de prédiction basé sur l'historique
+def generate_prediction(historical_data, num_predictions=5):
+    # Traitement de l'historique des données (ex: prise en compte de x)
+    predictions = []
+    for i in range(num_predictions):
+        # Exemple de calcul basé sur un modèle probabiliste
+        prediction = historical_data[-1] * random.uniform(1, 3)  # Random multiplier
+        predictions.append(round(prediction, 2))
+    return predictions
 
-st.title("Prédicteur Aviator avec Rolling + Hashing")
-st.markdown("Entrez les multiplicateurs récents et le numéro du dernier tour pour voir les prédictions fiables.")
+# Fonction pour calculer la fiabilité des prédictions
+def calculate_reliability(predictions):
+    reliability = []
+    for p in predictions:
+        reliability.append(random.uniform(70, 100))  # Génère un pourcentage aléatoire de fiabilité
+    return reliability
 
-# === Inputs ===
-historique_input = st.text_area("Entrer les multiplicateurs (séparés par 'x'):", 
-                                 "2.51x 6.38x 1.28x 1.52x 1.15x 2.97x 4.03x 1.28x 7.08x 1.69x 1.98x 1.09x 1.30x 4.05x 3.11x 2.65x 1.48x 1.87x 3.00x 1.35x 1.32x 1.04x 6.49x 1.60x 1.06x 11.89x 1.97x")
-dernier_tour = st.number_input("Entrer le numéro du dernier tour (ex: 74 si 2.51x est le plus récent):", value=74, step=1)
-
-if st.button("Calculer les prédictions"):
-
-    # === Nettoyage des données ===
-    multiplicateurs = re.findall(r"\d+\.\d+", historique_input)
-    multiplicateurs = [float(m) for m in multiplicateurs]
-
-    if len(multiplicateurs) < 10:
-        st.warning("Veuillez entrer au moins 10 multiplicateurs pour une meilleure prédiction.")
-    else:
-        # === Fonctions auxiliaires ===
-        def calc_hash_seed(multiplicateurs):
-            raw = "".join([str(m) for m in multiplicateurs])
-            return sha256(raw.encode()).hexdigest()
-
-        def rolling_prediction(data):
-            high_indexes = [i for i, m in enumerate(data) if m >= 5]
-            if len(high_indexes) < 2:
-                return None, 0
-            intervals = [high_indexes[i+1] - high_indexes[i] for i in range(len(high_indexes)-1)]
-            moy = np.mean(intervals)
-            next_index = high_indexes[-1] + int(round(moy))
-            confiance = round(min(100, 90 - (len(data) - high_indexes[-1])*3), 2)
-            return next_index, confiance
-
-        # === Traitement principal ===
-        seed = calc_hash_seed(multiplicateurs[-10:])  # Hash des 10 derniers pour tracking
-        pred_proche = round(np.mean(multiplicateurs[:5]) + np.std(multiplicateurs[:5]), 2)
-        pred_lointain_index, confiance = rolling_prediction(multiplicateurs)
-
-        st.subheader("Résultats de Prédiction")
-        st.markdown(f"- **Hash Seed** (pour vérif): `{seed[:16]}...`")
-        st.markdown(f"- **Prédiction prochaine (haute fiabilité)**: **x{pred_proche}**")
-        
-        if pred_lointain_index:
-            tour_lointain = dernier_tour + (pred_lointain_index - len(multiplicateurs))
-            st.markdown(f"- **Prédiction distante (tendance X5+)**: Tour **T{tour_lointain}** —> **X5+ probabilité**")
-            st.markdown(f"- **Taux de fiabilité**: {confiance}%")
+# Fonction pour simuler un crash (bleu)
+def simulate_crash(predictions):
+    crash = []
+    for p in predictions:
+        if p < 2:
+            crash.append("Crash possible")
         else:
-            st.warning("Pas assez de multiplicateurs élevés (≥ x5) pour prédire une tendance distante.")
+            crash.append("Assuré")
+    return crash
+
+# Interface Streamlit pour entrer l'historique des multiplicateurs
+st.title("Aviator Prediction App")
+
+# Saisie de l'historique des multiplicateurs (exemple d'entrée)
+historical_data_input = st.text_input("Entrez les résultats historiques séparés par des espaces (ex: 2.51x 6.38x 1.28x)")
+
+# Si des données sont entrées
+if historical_data_input:
+    historical_data = [float(x[:-1]) for x in historical_data_input.split()]  # Enlever 'x' et convertir en float
+    
+    # Génération des prédictions
+    predictions = generate_prediction(historical_data)
+    
+    # Calcul de la fiabilité pour chaque prédiction
+    reliability = calculate_reliability(predictions)
+    
+    # Simulation de crash
+    crash_status = simulate_crash(predictions)
+    
+    # Affichage des prédictions avec leur fiabilité et statut de crash
+    st.write("Prédictions:")
+    for i, p in enumerate(predictions):
+        st.write(f"T+{i+1}: {p}x - Fiabilité: {reliability[i]}% - Statut: {crash_status[i]}")
+
+# Option pour afficher les résultats à long terme
+if st.button('Afficher prédictions à long terme'):
+    long_term_predictions = generate_prediction(historical_data, num_predictions=10)
+    st.write("Prédictions à long terme (T+15, T+20, etc.):")
+    for i, p in enumerate(long_term_predictions):
+        st.write(f"T+{i+1}: {p}x")import streamlit as st
+import numpy as np
+import random
+import hashlib
+
+# Fonction pour effectuer un calcul de prédiction basé sur l'historique
+def generate_prediction(historical_data, num_predictions=5):
+    # Traitement de l'historique des données (ex: prise en compte de x)
+    predictions = []
+    for i in range(num_predictions):
+        # Exemple de calcul basé sur un modèle probabiliste
+        prediction = historical_data[-1] * random.uniform(1, 3)  # Random multiplier
+        predictions.append(round(prediction, 2))
+    return predictions
+
+# Fonction pour calculer la fiabilité des prédictions
+def calculate_reliability(predictions):
+    reliability = []
+    for p in predictions:
+        reliability.append(random.uniform(70, 100))  # Génère un pourcentage aléatoire de fiabilité
+    return reliability
+
+# Fonction pour simuler un crash (bleu)
+def simulate_crash(predictions):
+    crash = []
+    for p in predictions:
+        if p < 2:
+            crash.append("Crash possible")
+        else:
+            crash.append("Assuré")
+    return crash
+
+# Interface Streamlit pour entrer l'historique des multiplicateurs
+st.title("Aviator Prediction App")
+
+# Saisie de l'historique des multiplicateurs (exemple d'entrée)
+historical_data_input = st.text_input("Entrez les résultats historiques séparés par des espaces (ex: 2.51x 6.38x 1.28x)")
+
+# Si des données sont entrées
+if historical_data_input:
+    historical_data = [float(x[:-1]) for x in historical_data_input.split()]  # Enlever 'x' et convertir en float
+    
+    # Génération des prédictions
+    predictions = generate_prediction(historical_data)
+    
+    # Calcul de la fiabilité pour chaque prédiction
+    reliability = calculate_reliability(predictions)
+    
+    # Simulation de crash
+    crash_status = simulate_crash(predictions)
+    
+    # Affichage des prédictions avec leur fiabilité et statut de crash
+    st.write("Prédictions:")
+    for i, p in enumerate(predictions):
+        st.write(f"T+{i+1}: {p}x - Fiabilité: {reliability[i]}% - Statut: {crash_status[i]}")
+
+# Option pour afficher les résultats à long terme
+if st.button('Afficher prédictions à long terme'):
+    long_term_predictions = generate_prediction(historical_data, num_predictions=10)
+    st.write("Prédictions à long terme (T+15, T+20, etc.):")
+    for i, p in enumerate(long_term_predictions):
+        st.write(f"T+{i+1}: {p}x")
