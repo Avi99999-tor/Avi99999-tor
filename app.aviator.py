@@ -1,82 +1,59 @@
-import streamlit as st import random from datetime import datetime
+import streamlit as st
+import random
+from datetime import datetime
 
-st.set_page_config(page_title="Aviator Rolling Prediction", layout="centered")
+st.set_page_config(page_title="Aviator Prediction", layout="centered")
 
-st.title("Aviator Prediction - Probabilistic Mode")
+st.title("Aviator Game Prediction — Rolling Version")
+st.markdown("**Version probabiliste simple avec prédiction sur les 3-5 tours suivants.**")
 
-st.markdown("---")
+# Input du dernier multiplicateur
+dernier_tour = st.number_input("Dernier numéro de tour connu (ex: 70)", min_value=0, step=1)
+multiplicateurs_input = st.text_input("Derniers multiplicateurs (5 valeurs séparées par des virgules)", value="1.05,2.00,1.52,1.52,3.49")
 
-st.subheader("1. Input des multiplicateurs (5 derniers)") user_input = st.text_input("Entrez les 5 derniers multiplicateurs séparés par des virgules:", "1.05, 2.00, 1.52, 1.52, 3.49")
+# Traitement
+if st.button("Prédire les prochains tours"):
+    try:
+        multipliers = [float(x.strip()) for x in multiplicateurs_input.split(",") if x.strip()]
+        digits = []
 
-try: multipliers = [float(x.strip()) for x in user_input.split(",") if x.strip()] assert len(multipliers) >= 5
+        for m in multipliers:
+            int_str = str(m).replace('.', '')
+            digits.extend([int(c) for c in int_str])
 
-# STEP 1: Extraction des chiffres après la virgule
-digits = []
-for m in multipliers:
-    parts = str(m).split(".")
-    if len(parts) == 2:
-        digits.append(int(parts[0]))
-        digits.extend([int(d) for d in parts[1]])
-    else:
-        digits.append(int(parts[0]))
-        digits.extend([0, 0])  # Si pas de virgule
+        # Seed automatique du jour
+        seed_value = int(datetime.now().strftime("%Y%m%d"))
+        random.seed(seed_value)
+        rng_digits = [random.randint(0, 9) for _ in range(len(digits))]
 
-# Limiter à 15 chiffres max
-digits = digits[:15]
+        # Mod 10
+        mod10 = [(d + r) % 10 for d, r in zip(digits, rng_digits)]
 
-st.markdown(f"**Chiffres extraits :** {digits}")
+        # Groupement (10 par 10)
+        seeds = [mod10[i:i + 10] for i in range(0, len(mod10), 10)]
 
-# STEP 2: Generation RNG
-seed_val = st.number_input("Seed (modifiable si besoin)", value=20250502, step=1)
-random.seed(seed_val)
-rng_digits = [random.randint(0, 9) for _ in range(len(digits))]
+        st.subheader("Résultat de l’analyse")
+        for i, group in enumerate(seeds):
+            seed_number = "".join(map(str, group))
+            st.text(f"Seed {i + 1}: {seed_number}")
 
-st.markdown(f"**RNG Digits :** {rng_digits}")
+        # Analyse tendance
+        st.subheader("Prédiction des tours suivants")
 
-# STEP 3: Modulo 10
-mod_digits = [(d + r) % 10 for d, r in zip(digits, rng_digits)]
-st.markdown(f"**Résultat (mod 10):** {mod_digits}")
+        predictions = []
+        for i in range(3):
+            next_tour = dernier_tour + 3 + i
+            sub = mod10[-10 + i:] if len(mod10) >= 10 else mod10
+            chance_haute = sub.count(8) + sub.count(9)
+            if chance_haute >= 2:
+                predictions.append((next_tour, "Possible x5/x10"))
+            else:
+                predictions.append((next_tour, "Probable crash (<x2)"))
 
-# STEP 4: Seeds groupés
-seed1 = "".join(str(x) for x in mod_digits[:10])
-seed2 = "".join(str(x) for x in mod_digits[10:])
+        for t, pred in predictions:
+            st.markdown(f"**T{t}** —> {pred}")
 
-st.markdown(f"**Seed 1 :** `{seed1}`")
-st.markdown(f"**Seed 2 :** `{seed2}`")
+        st.info(f"Seed utilisée: `{seed_value}` — Tendance en cours évaluée sur {len(digits)} chiffres.")
 
-st.markdown("---")
-st.subheader("2. Prédictions possibles")
-
-# Analyse probabiliste simple
-signal_haut = sum(1 for x in mod_digits if x >= 7)
-signal_moyen = sum(1 for x in mod_digits if 4 <= x <= 6)
-signal_bas = sum(1 for x in mod_digits if x <= 3)
-
-if signal_haut >= 4:
-    tendance = "FORTE montée (possible X5 à X10 dans les 3 à 5 prochains tours)"
-elif signal_haut >= 2:
-    tendance = "Moyenne probabilité de montée (X3 à X5)"
-elif signal_bas >= 5:
-    tendance = "Crash probable (X1.00 à X2.00)"
-else:
-    tendance = "Stable ou fluctuation normale"
-
-st.success(f"**Analyse :** {tendance}")
-
-# Rolling prédiction
-st.markdown("### Rolling prédictions")
-st.markdown("**Tours prédits (prochains):**")
-current_tour = st.number_input("Dernier numéro de tour connu:", value=80, step=1)
-
-pred_tours = []
-if signal_haut >= 3:
-    pred_tours = [f"T{current_tour+3}", f"T{current_tour+4}", f"T{current_tour+5}"]
-elif signal_bas >= 5:
-    pred_tours = [f"T{current_tour+1}", f"T{current_tour+2}", f"T{current_tour+3}"]
-else:
-    pred_tours = [f"T{current_tour+2}", f"T{current_tour+3}", f"T{current_tour+4}"]
-
-st.info(" / ".join(pred_tours) + " → **x5+ Possibility**")
-
-except Exception as e: st.error("Erreur de traitement. Vérifiez vos données.") st.exception(e)
-
+    except Exception as e:
+        st.error(f"Erreur lors de l’analyse: {e}")
