@@ -1,39 +1,62 @@
 import streamlit as st
 import random
 
-# Function to generate and display prediction
-def generate_prediction(seed, multipliers):
-    random.seed(seed)
-    
-    # Extract digits from multipliers
+st.title("Aviator Prediction - Probabiliste Fiable")
+
+# Saisie automatique an'ireo multiplicateurs 5 farany
+multipliers_input = st.text_input("Multiplicateurs 5 farany (misaraka amin'ny virgule)", "1.05,2.00,1.52,1.52,3.49")
+last_tour = st.number_input("Numéro du dernier tour (ex: 66)", value=66, step=1)
+seed_value = st.number_input("Seed (ex: 20250502)", value=20250502, step=1)
+
+# Traitement
+def extract_digits(multis):
     digits = []
-    for mul in multipliers:
-        digits.extend([int(digit) for digit in str(mul)[2:]])  # get digits after the decimal point
+    for m in multis:
+        parts = str(m).split(".")
+        if len(parts) == 2:
+            digits += [int(x) for x in parts[1]]
+    return digits
 
-    # Generate random digits based on the seed
-    rng_digits = [random.randint(0, 9) for _ in range(len(digits))]
+def prediction_analysis(multis, seed):
+    digits = extract_digits(multis)
+    random.seed(seed)
+    rng = [random.randint(0,9) for _ in range(len(digits))]
+    results = [(d + r) % 10 for d, r in zip(digits, rng)]
 
-    # Apply mod 10 addition
-    final_digits = [(d + r) % 10 for d, r in zip(digits, rng_digits)]
-    
-    # Create seeds from the resulting digits
-    seeds = []
-    for i in range(0, len(final_digits), 10):
-        seeds.append(int("".join(map(str, final_digits[i:i+10]))))
-    
-    return seeds
+    # Analyse tendance
+    count_high = sum(1 for d in results if d >= 7)
+    count_mid = sum(1 for d in results if 4 <= d <= 6)
 
-# Example multipliers (replace these with actual data from the game)
-multipliers = [1.05, 2.00, 1.52, 1.52, 3.49]
+    crash = count_high <= 1
+    x5_possible = count_high >= 2 and count_high <= 3
+    x10_possible = count_high >= 4
 
-# Generate prediction based on seed (20250502)
-seed = 20250502
-seeds = generate_prediction(seed, multipliers)
+    return results, crash, x5_possible, x10_possible
 
-# Display the result using Streamlit
-st.title("Aviator Game Prediction")
-st.write("Generated Seeds: ", seeds)
+# Execution
+try:
+    multipliers = [float(x.strip()) for x in multipliers_input.split(",")]
+    if len(multipliers) == 5:
+        results, crash, x5, x10 = prediction_analysis(multipliers, seed_value)
 
-# Display message based on analysis (optional)
-st.write("Prediction Analysis:")
-st.write("Based on the generated seeds, there is a trend towards a possible increase in the next rounds.")
+        # Numéros de tours à venir
+        T1 = last_tour + 1
+        T2 = last_tour + 2
+        T3 = last_tour + 3
+
+        st.markdown(f"### Résultats calculés : T{T1} → T{T3}")
+        if crash:
+            st.error("**Crash probable** dans les prochaines 3 tours.")
+        elif x10:
+            st.success(f"**Haute probabilité** de X10 entre T{T1}/T{T2}/T{T3}")
+        elif x5:
+            st.warning(f"**Possibilité de X5** entre T{T1}/T{T2}/T{T3}")
+        else:
+            st.info("**Tendance moyenne** – Prépare stratégie ou attendre.")
+
+        st.markdown(f"**Numéros de Tours analysés:** {last_tour - 4} à {last_tour}")
+        st.markdown(f"**Multiplicateurs Entrés:** {multipliers}")
+    else:
+        st.warning("Ampidiro tsara ny 5 multiplicateurs farany.")
+except:
+    st.error("Olana tamin'ny fanodinana ny angona. Zahao tsara ny format.")
