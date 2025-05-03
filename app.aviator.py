@@ -1,34 +1,49 @@
-import streamlit as st import numpy as np import random import hashlib
+import streamlit as st import numpy as np import re
 
-Fonction pour effectuer un calcul de prédiction basé sur l'historique
+--- Fonction de prédiction complète ---
 
-def generate_prediction(historical_data, num_predictions=5): predictions = [] for i in range(num_predictions): prediction = historical_data[-1] * random.uniform(1, 3) predictions.append(round(prediction, 2)) return predictions
+def prediction_combinee(historique, dernier_tour): valeurs = [float(val.replace('x', '')) for val in historique] prediction = [] fiabilites = []
 
-Fonction pour calculer la fiabilité des prédictions
+# Rolling Prediction
+moyenne = np.mean(valeurs[-10:])
+ecart_type = np.std(valeurs[-10:])
 
-def calculate_reliability(predictions): reliability = [] for p in predictions: reliability.append(round(random.uniform(70, 100), 2)) return reliability
+# Génération de plusieurs prédictions (T+1 à T+20)
+for i in range(1, 21):
+    prediction_val = round(moyenne + ((-1)**i) * (ecart_type * (i / 10)), 2)
 
-Fonction pour simuler un crash (bleu)
+    # Hashing simple basé sur le modulo
+    if int(prediction_val * 100) % 10 in [0, 1, 2]:
+        prediction_val = round(prediction_val * 0.75, 2)  # Crash probable
+    elif int(prediction_val * 100) % 10 in [8, 9]:
+        prediction_val = round(prediction_val * 1.5, 2)   # Boost possible
 
-def simulate_crash(predictions): crash = [] for p in predictions: if p < 2: crash.append("Crash possible") else: crash.append("Assuré") return crash
+    # Fiabilité (plus on s'éloigne du présent, moins c'est fiable)
+    pourcentage = max(30, 100 - i * 3)
 
-st.title("Aviator Prediction App")
+    prediction.append((dernier_tour + i, prediction_val, pourcentage))
 
-Entrée de l'historique sous forme de texte
+return prediction
 
-historical_data_input = st.text_input("Entrez les multiplicateurs séparés par des espaces (ex: 2.51x 6.38x 1.28x)") numero_dernier_tour = st.number_input("Entrez le numéro du dernier tour (correspondant au premier multiplicateur)", min_value=1, value=100)
+--- Interface Streamlit ---
 
-if historical_data_input: raw_data = historical_data_input.strip().split() historical_data = [float(x[:-1]) for x in raw_data if x.endswith('x')]
+st.title("Prédiction Aviator - Version complète")
 
-predictions = generate_prediction(historical_data, num_predictions=10)
-reliability = calculate_reliability(predictions)
-crash_status = simulate_crash(predictions)
+st.markdown("Entrez l'historique des multiplicateurs (du plus récent au plus ancien):") historique_input = st.text_area("Multiplicateurs (ex: 2.51x 6.38x 1.28x ...)")
 
-st.subheader("Historique reconstitué:")
-for i, mult in enumerate(historical_data):
-    st.write(f"T{numero_dernier_tour + i}: {mult}x")
+numero_tour = st.number_input("Entrez le numéro du dernier tour (ex: 74 si 2.51x est le plus récent):", min_value=0, step=1)
 
-st.subheader("Prédictions proches et lointaines:")
-for i, p in enumerate(predictions):
-    st.write(f"T{numero_dernier_tour + len(historical_data) + i}: {p}x - Fiabilité: {reliability[i]}% - Statut: {crash_status[i]}")
+if st.button("Calculer les prédictions"): if historique_input: historique = re.findall(r"\d+.\d+x", historique_input)
+
+if len(historique) < 10:
+        st.warning("Veuillez entrer au moins 10 valeurs de multiplicateurs.")
+    else:
+        predictions = prediction_combinee(historique, numero_tour)
+
+        st.subheader("Résultats des prédictions:")
+        for tour, val, confiance in predictions:
+            couleur = "**(Crash probable)**" if val < 2 else ("**(Haute valeur probable)**" if val >= 5 else "")
+            st.markdown(f"- **T{tour}** → {val}x — Fiabilité: {confiance}% {couleur}")
+else:
+    st.error("Veuillez entrer les données d'historique.")
 
