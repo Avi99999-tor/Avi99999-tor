@@ -1,29 +1,70 @@
-import streamlit as st import numpy as np
+import streamlit as st
+import numpy as np
+import random
 
---- Fonctions Stratégiques ---
+st.title("Prédiction Expert by Mickael")
+st.subheader("Version combinée: mod 10 + seed + logique expert")
 
-def extract_mod10(val): try: last_digit = int(str(val).split('.')[-1][-1]) return last_digit % 10 except: return 0
+# Entrée utilisateur
+multiplicateurs_input = st.text_area("**Entrez les multiplicateurs (du plus récent au plus ancien)**", 
+                                     placeholder="Ex: 2.14x 1.26x 5.87x ...")
 
-def get_seed_pattern(values): return [round((float(str(v).split('.')[-1])/100), 2) for v in values]
+dernier_tour = st.number_input("**Numéro du dernier tour (ex: 74 si 2.14x est le plus récent)**", min_value=1, value=50)
 
-def rolling_average(values, window=5): if len(values) < window: return np.mean(values) return np.mean(values[-window:])
+def nettoyer_donnees(texte):
+    valeurs = texte.replace(',', '.').lower().replace('x', '').split()
+    try:
+        return [float(v) for v in valeurs if float(v) > 0]
+    except:
+        return []
 
-def expert_prediction(history, start_tour): pred = [] seeds = get_seed_pattern(history[-10:]) mod10_vals = [extract_mod10(v) for v in history[-10:]] avg = rolling_average(history[-5:]) std = np.std(history[-5:])
+def fiabilite(pred):
+    if pred >= 5:
+        return 85 + random.randint(0, 5)
+    elif pred >= 3:
+        return 75 + random.randint(0, 5)
+    elif pred <= 1.2:
+        return 60 + random.randint(-5, 5)
+    else:
+        return 70 + random.randint(-5, 5)
 
-for i in range(1, 11):
-    fluct = np.sin(i + sum(mod10_vals[-3:])) + np.mean(seeds[-3:]) * 2
-    result = round(avg + (fluct * std * 0.5), 2)
-    result = max(1.01, result)
-    fiability = 60 + min(40, abs(result - avg) * 10)
-    tour_number = start_tour + i
-    pred.append((f"T{tour_number}", result, round(min(99, fiability))))
-return pred
+def analyse_mod_seed(liste):
+    chiffres_mod = [int(str(x).split(".")[-1]) % 10 for x in liste]
+    moy_mod = sum(chiffres_mod) / len(chiffres_mod)
+    return moy_mod
 
---- Streamlit App ---
+def prediction_expert(multiplicateurs, base_tour):
+    résultats = []
+    rolling_mean = np.mean(multiplicateurs)
+    mod_score = analyse_mod_seed(multiplicateurs)
+    
+    for i in range(1, 21):  # T+1 à T+20
+        seed = int((mod_score + rolling_mean + i * 3.73) * 1000) % 97
+        pred = round(abs((np.sin(seed) + np.cos(i * mod_score)) * 3 + random.uniform(0.2, 1.5)), 2)
+        
+        # Filtrage et ajustement
+        if pred < 1.00:
+            pred = round(0.99 + random.uniform(0.01, 0.2), 2)
+        elif pred > 10:
+            pred = round(6 + random.uniform(0.5, 2.5), 2)
+        
+        fiab = fiabilite(pred)
+        label = "Assuré" if fiab >= 80 else "Crash probable" if pred <= 1.20 else ""
+        
+        résultats.append((base_tour + i, pred, fiab, label))
+    
+    return résultats
 
-st.set_page_config(page_title="AVIATOR EXPERT PREDICTOR", layout="centered") st.title("AVIATOR PREDICTOR - MODE EXPERT")
-
-with st.form("input_form"): input_data = st.text_area("Multiplicateurs (séparés par des espaces)", "") tour_recent = st.number_input("Numéro du tour le plus récent (ex: 130)", min_value=1, value=130) submitted = st.form_submit_button("Prédire")
-
-if submitted: try: history = list(map(float, input_data.strip().split())) if len(history) >= 10: preds = expert_prediction(history, start_tour=tour_recent) st.subheader("Prédictions Expert") for t, val, f in preds: if f >= 60: color = "green" if f >= 80 else ("orange" if f >= 70 else "gray") st.markdown(f"{t} → {val}x — Fiabilité: :{color}[{f}%]") else: st.warning("Ampidiro multiplicateurs farafahakeliny 10.") except: st.error("Format diso. Azafady, ampiasao espace hanasarahana ny isa.")
-
+if multiplicateurs_input:
+    historique = nettoyer_donnees(multiplicateurs_input)
+    
+    if len(historique) < 10:
+        st.warning("Veuillez entrer au moins 10 multiplicateurs.")
+    else:
+        résultats = prediction_expert(historique, int(dernier_tour))
+        st.markdown("### **Résultats des prédictions (T+1 à T+20) :**")
+        for tour, val, pourcent, label in résultats:
+            line = f"**T{tour}** → **{val}x** — Fiabilité: **{pourcent}%**"
+            if label:
+                line += f" **({label})**"
+            st.markdown("- " + line)
