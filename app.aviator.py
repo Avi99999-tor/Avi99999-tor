@@ -15,7 +15,7 @@ def calculate_predictions(history):
         avg = np.mean(recent)
         std = np.std(recent)
         mod_vals = [int(str(x).split(".")[-1]) % 10 for x in recent if '.' in str(x)]
-        mod_score = sum([1 for m in mod_vals if m in [2, 4, 7]])  # simple pattern
+        mod_score = sum([1 for m in mod_vals if m in [2, 4, 7]])  # pattern simple
 
         pred_base = avg + random.uniform(-0.4, 0.6)
         fiab = 60 + min(40, max(0, 10 * (mod_score + (std > 1.2) + (avg < 2.0))))
@@ -25,7 +25,7 @@ def calculate_predictions(history):
         
         predictions.append({
             "Tour": f"T{i + len(multipliers)}",
-            "Prédiction": round(pred_base, 2),
+            "Prédiction": f"x{round(pred_base, 2)}",
             "Fiabilité": f"{min(99, max(30, int(fiab)))}%"
         })
         multipliers.append(pred_base)
@@ -35,7 +35,7 @@ def calculate_predictions(history):
 st.set_page_config(page_title="Prediction Expert by Mickael", layout="centered")
 
 st.markdown("### **Prediction Expert by Mickael**")
-st.markdown("**Admin:** Mickael  |  **Contact:** 033 31 744 68")
+st.markdown("**Admin:** Mickael**  |  **Contact:** 033 31 744 68")
 st.markdown("---")
 
 # Login
@@ -54,10 +54,11 @@ if not st.session_state.authenticated:
             st.error("Nom d'utilisateur ou mot de passe incorrect.")
 else:
     st.success("Connecté en tant que Topexacte")
+
     st.markdown("### **Entrer l'historique des multiplicateurs**")
-    st.markdown("*Format: 1.22x 3.45x 1.00x ...*")
+    st.markdown("*Exemple: 1.22x 3.45x 1.00x ...*")
     history_input = st.text_area("Historique des tours précédents", height=150)
-    
+
     if st.button("Calculer les prédictions"):
         if history_input.strip() == "":
             st.warning("Veuillez entrer l'historique des multiplicateurs.")
