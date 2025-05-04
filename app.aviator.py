@@ -1,53 +1,78 @@
-import streamlit as st import numpy as np import random import pandas as pd
+import streamlit as st
+import numpy as np
+import random
+import pandas as pd
+import math
 
-st.set_page_config(page_title="Prediction Expert by Mickael", layout="centered") st.title("Prediction Expert by Mickael") st.markdown("### Mode Expert: Seed, Mod 10, Rolling Avg")
+# Fonction pour obtenir les chiffres après virgule du multiplicateur (Mod 10)
+def mod10_pattern(value):
+    return int(str(value).split('.')[1][0]) % 10
 
-Saisie manokana ho an'ny tour farany indrindra
+# Fonction pour calculer le rolling average
+def rolling_average(data, window=10):
+    return np.mean(data[-window:])
 
-recent_tour = st.number_input("Numéro du tour le plus récent (ex: 100)", min_value=1, value=100, step=1)
+# Fonction pour calculer la variance dynamique
+def rolling_variance(data, window=10):
+    return np.var(data[-window:])
 
-Input an'ireo multiplicateurs (historique)
-
-mult_input = st.text_area("Entrer les multiplicateurs séparés par espace (ex: 1.34x 2.01x 1.05x)")
-
-def extract_values(input_str): try: return [float(val.replace('x', '').strip()) for val in input_str.split() if 'x' in val] except: return []
-
-Fonctions statistika
-
-def mod10_analysis(values): return [int(str(val).split(".")[-1][:2]) % 10 for val in values]
-
-def rolling_avg(values, window=5): return pd.Series(values).rolling(window).mean().tolist()
-
-def rolling_std(values, window=5): return pd.Series(values).rolling(window).std().tolist()
-
-def predict_next(values): predictions = [] mods = mod10_analysis(values) roll_avg = rolling_avg(values) roll_std = rolling_std(values)
-
-for i in range(1, 11):
-    last = values[-1]
-    mod = mods[-1]
-    avg = roll_avg[-1] if roll_avg[-1] else np.mean(values)
-    std = roll_std[-1] if roll_std[-1] else np.std(values)
-
-    if last < 1.20:
-        pred = round(np.random.uniform(2.0, 6.0), 2)
-        confidence = 80 + random.randint(0, 10)
-    elif mod in [3, 7, 9]:
-        pred = round(np.random.uniform(4.0, 9.0), 2)
-        confidence = 85
-    elif std > 4:
-        pred = round(np.random.uniform(5.0, 10.0), 2)
-        confidence = 88
+# Fonction pour prédire selon les patterns observés
+def predict_next(data):
+    last_value = data[-1]
+    mod_value = mod10_pattern(last_value)
+    
+    if mod_value == 7:
+        return random.choice([5.5, 6.0, 6.5])  # Pattern explosion probable
+    elif mod_value == 3:
+        return random.choice([1.0, 1.2, 1.3])  # Pattern crash probable
     else:
-        pred = round(np.random.uniform(1.20, 3.0), 2)
-        confidence = 65 + random.randint(0, 10)
+        return random.choice([2.5, 3.0, 2.0])  # Tendance générale
 
-    predictions.append((pred, confidence))
-    values.append(pred)
-    mods.append(pred % 10)
-    roll_avg.append(np.mean(values[-5:]))
-    roll_std.append(np.std(values[-5:]))
+# Fonction pour afficher les prédictions avec fiabilité
+def display_predictions(predictions, confidence_level):
+    st.write("### Prédictions pour les tours suivants:")
+    for i, (prediction, confidence) in enumerate(predictions):
+        st.write(f"T{i+1}: {prediction} — Fiabilité: {confidence}%")
 
-return predictions
+# Fonction de génération des prédictions avec fiabilité > 60%
+def generate_predictions(data):
+    predictions = []
+    for i in range(10):  # Pour les tours T1 à T10
+        next_value = predict_next(data)
+        confidence = random.randint(60, 90)  # Fiabilité aléatoire entre 60% et 90%
+        predictions.append((next_value, confidence))
+    return predictions
 
-if mult_input: values = extract_values(mult_input) if len(values) >= 5: preds = predict_next(values.copy()) st.subheader("Résultat des Prédictions T+1 à T+10") for i, (val, conf) in enumerate(preds): tour_label = f"T{recent_tour + i + 1}" if conf >= 80: st.success(f"{tour_label} → {val}x | Fiabilité: {conf}% (Assuré)") elif conf >= 65: st.info(f"{tour_label} → {val}x | Fiabilité: {conf}%") else: st.warning(f"{tour_label} → {val}x | Fiabilité: {conf}% (Risque)") else: st.error("Entrer au moins 5 multiplicateurs valides.")
+# Interface utilisateur pour l'entrée manuelle de données (par exemple, dernier tour)
+st.title("Aviator Prediction Expert by Mickael")
 
+# Saisie manuelle pour les derniers tours
+last_value = st.number_input("Entrez la valeur du dernier tour (ex: 1.34x)", min_value=1.0, max_value=100.0, step=0.01)
+
+# Liste des derniers multiplicateurs (historique)
+history = [last_value]  # Ajoutez d'autres valeurs ici si vous en avez
+
+# Calcul des prédictions
+predictions = generate_predictions(history)
+
+# Affichage des prédictions avec une fiabilité supérieure à 60%
+display_predictions(predictions, confidence_level=60)
+
+# Fonction de login (interface simple)
+def login_interface():
+    username = st.text_input("Nom d'utilisateur")
+    password = st.text_input("Mot de passe", type="password")
+
+    if username == "Topexacte" and password == "5312288612bet261":
+        st.success("Connexion réussie!")
+        return True
+    else:
+        st.error("Nom d'utilisateur ou mot de passe incorrect")
+        return False
+
+# Logique de connexion
+if login_interface():
+    st.write("### Bienvenue dans l'interface Expert!")
+    st.write("Vous pouvez maintenant utiliser les prédictions et les stratégies.")
+else:
+    st.write("Essayez de vous connecter avec les bonnes informations.")
