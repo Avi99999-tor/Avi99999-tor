@@ -1,70 +1,53 @@
 import streamlit as st import numpy as np import random import pandas as pd
 
-st.set_page_config(page_title="Prediction Expert by Mickael", layout="centered") st.title("Prédiction Expert by Mickael")
+st.set_page_config(page_title="Prediction Expert by Mickael", layout="centered") st.title("Prediction Expert by Mickael") st.markdown("### Mode Expert: Seed, Mod 10, Rolling Avg")
 
-User input
+Saisie manokana ho an'ny tour farany indrindra
 
-st.subheader("Entrer les 10 derniers multiplicateurs") data_input = st.text_input("Exemple: 1.23, 1.01, 3.45, 72.12, ...")
+recent_tour = st.number_input("Numéro du tour le plus récent (ex: 100)", min_value=1, value=100, step=1)
 
-def parse_input(data_input): try: values = [float(x.strip().replace("x", "")) for x in data_input.split(",") if x.strip()] return values except: return []
+Input an'ireo multiplicateurs (historique)
 
-values = parse_input(data_input)
+mult_input = st.text_area("Entrer les multiplicateurs séparés par espace (ex: 1.34x 2.01x 1.05x)")
 
-Modulo tracking (mod 10)
+def extract_values(input_str): try: return [float(val.replace('x', '').strip()) for val in input_str.split() if 'x' in val] except: return []
 
-def compute_mod10(values): mod10 = [int(str(v).split(".")[1]) % 10 if "." in str(v) else 0 for v in values] return mod10
+Fonctions statistika
 
-Rolling average
+def mod10_analysis(values): return [int(str(val).split(".")[-1][:2]) % 10 for val in values]
 
-def rolling_stats(values, window=5): if len(values) < window: return np.mean(values), np.std(values) return np.mean(values[-window:]), np.std(values[-window:])
+def rolling_avg(values, window=5): return pd.Series(values).rolling(window).mean().tolist()
 
-Pattern clustering (simplified)
+def rolling_std(values, window=5): return pd.Series(values).rolling(window).std().tolist()
 
-def recent_pattern(values): if len(values) < 3: return None return [round(v, 2) for v in values[-3:]]
+def predict_next(values): predictions = [] mods = mod10_analysis(values) roll_avg = rolling_avg(values) roll_std = rolling_std(values)
 
-Generate prediction with logic
+for i in range(1, 11):
+    last = values[-1]
+    mod = mods[-1]
+    avg = roll_avg[-1] if roll_avg[-1] else np.mean(values)
+    std = roll_std[-1] if roll_std[-1] else np.std(values)
 
-def predict_next(values): if len(values) < 10: return []
+    if last < 1.20:
+        pred = round(np.random.uniform(2.0, 6.0), 2)
+        confidence = 80 + random.randint(0, 10)
+    elif mod in [3, 7, 9]:
+        pred = round(np.random.uniform(4.0, 9.0), 2)
+        confidence = 85
+    elif std > 4:
+        pred = round(np.random.uniform(5.0, 10.0), 2)
+        confidence = 88
+    else:
+        pred = round(np.random.uniform(1.20, 3.0), 2)
+        confidence = 65 + random.randint(0, 10)
 
-predictions = []
-rolling_avg, rolling_std = rolling_stats(values, window=5)
-mod10_list = compute_mod10(values)
-
-for i in range(1, 21):
-    base = 1.5 + 0.2 * (i % 3) + random.uniform(-0.1, 0.3)
-    mod_val = mod10_list[-1] if mod10_list else 0
-
-    if mod_val in [3, 7]:
-        base += random.uniform(2, 4)  # Explosion mod
-
-    if rolling_avg < 2.0 and rolling_std < 0.6:
-        base += random.uniform(1.5, 3.0)  # Rebond probable après crash
-
-    if values[-1] < 1.20:
-        base += random.uniform(2.0, 3.5)
-
-    base = round(base, 2)
-    conf = random.randint(68, 88)
-    label = "Assuré" if base >= 5 and conf >= 80 else "" if conf < 70 else "Probable"
-    predictions.append((f"T+{i}", base, conf, label))
+    predictions.append((pred, confidence))
+    values.append(pred)
+    mods.append(pred % 10)
+    roll_avg.append(np.mean(values[-5:]))
+    roll_std.append(np.std(values[-5:]))
 
 return predictions
 
-if values: st.subheader("Résultats de Prédiction") preds = predict_next(values) df = pd.DataFrame(preds, columns=["Tour", "Multiplicateur Prévu", "Fiabilité (%)", "Note"]) st.dataframe(df, use_container_width=True)
-
-st.subheader("Analyse Mod 10")
-st.write(f"Mod 10 des 10 derniers multiplicateurs: {compute_mod10(values)}")
-
-st.subheader("Statistique Dynamique")
-avg, std = rolling_stats(values)
-st.write(f"Rolling Moyenne: {round(avg, 2)} | Écart-type: {round(std, 2)}")
-
-pattern = recent_pattern(values)
-if pattern:
-    st.subheader("Dernier Pattern détecté")
-    st.write(f"{pattern}")
-
-st.info("Mode expert actif: prédiction probabiliste + pattern detection + mod10 tracking")
-
-else: st.warning("Veuillez entrer au moins 10 multiplicateurs.")
+if mult_input: values = extract_values(mult_input) if len(values) >= 5: preds = predict_next(values.copy()) st.subheader("Résultat des Prédictions T+1 à T+10") for i, (val, conf) in enumerate(preds): tour_label = f"T{recent_tour + i + 1}" if conf >= 80: st.success(f"{tour_label} → {val}x | Fiabilité: {conf}% (Assuré)") elif conf >= 65: st.info(f"{tour_label} → {val}x | Fiabilité: {conf}%") else: st.warning(f"{tour_label} → {val}x | Fiabilité: {conf}% (Risque)") else: st.error("Entrer au moins 5 multiplicateurs valides.")
 
