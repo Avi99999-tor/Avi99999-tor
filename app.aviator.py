@@ -1,59 +1,52 @@
-import streamlit as st import numpy as np
+import streamlit as st
+import numpy as np
 
-def calcul_prediction(multiplicateurs, t_last): results = [] recent = multiplicateurs[:10]  # Derniers 10 pour rolling
+st.set_page_config(page_title="Aviator Prediction - Mode Expert", layout="centered")
+st.title("Aviator Predictor — Mode Expert")
 
-def mean_local(data):
-    return np.mean([x for x in data if x > 1.0 and x < 10.0])
+# Input zone
+history_input = st.text_area("Multiplicateurs récents (séparés par espace ou ligne)", height=150)
+predict_button = st.button("Prédire (T+1 à T+10)")
 
-def poids(val):
-    if val < 1.2:
-        return -2
-    elif val < 2.0:
-        return 1
-    elif val < 5:
-        return 2
-    elif val < 10:
-        return 4
+# Prediction logic
+def predict_expert(data):
+    data = [float(x.lower().replace('x', '').replace('%', '')) for x in data if x.strip()]
+    predictions = []
+    
+    for i in range(10):
+        last_vals = data[-5:] if len(data) >= 5 else data
+        mean = np.mean(last_vals)
+        std_dev = np.std(last_vals)
+        
+        # Pondération dynamique
+        weight = 1.0
+        if data[-1] < 1.3:  # Crash probable
+            weight = 1.4
+        elif data[-1] > 5:
+            weight = 0.8
+        
+        # Rolling average + variation
+        pred = round(np.clip(np.random.normal(mean * weight, std_dev), 1.00, 25.0), 2)
+        
+        # Fiabilité estimation
+        fiability = round(100 - abs(mean - pred) * 4, 1)
+        label = "Assuré" if fiability >= 80 else "Probable" if fiability >= 60 else "Faible"
+        
+        # Filter only if fiabilité > 60%
+        if fiability >= 60:
+            predictions.append((f"T{i+1}", pred, f"{fiability}%", label))
+        
+        data.append(pred)
+    return predictions
+
+# Résultat
+if predict_button and history_input:
+    raw_data = history_input.replace('\n', ' ').split()
+    results = predict_expert(raw_data)
+
+    if results:
+        st.subheader("Résultats avec Fiabilité (≥ 60%)")
+        for tour, val, taux, label in results:
+            st.markdown(f"**{tour} → {val}x** | Fiabilité: `{taux}` — `{label}`")
     else:
-        return 6
-
-moyenne = mean_local(recent)
-count_crash = sum(1 for x in recent if x < 1.3)
-tendance_haute = sum(1 for x in recent if x >= 5)
-
-for i in range(1, 21):
-    base = moyenne + (np.random.rand() - 0.5) * 2
-    rebond = 0
-    if count_crash >= 3 and i in [3, 5, 8, 13, 18]:
-        rebond = np.random.uniform(2.5, 6.5)
-    elif tendance_haute >= 2 and i in [6, 10, 15]:
-        rebond = np.random.uniform(5.5, 10.0)
-
-    valeur = rebond if rebond > 0 else max(1.01, round(base, 2))
-    fiab = min(97, max(50, 100 - abs(valeur - moyenne) * 20))
-
-    tag = ""
-    if valeur < 1.3:
-        tag = "(Crash probable)"
-    elif valeur >= 5:
-        tag = "(Haute valeur probable — Assuré)"
-    elif fiab >= 80:
-        tag = "(Assuré)"
-
-    results.append((f"T{t_last + i}", f"{valeur:.2f}x", f"{int(fiab)}%", tag))
-
-return results
-
-st.title("Prédiction Aviator - Version Probabiliste Fiable")
-
-multiplicateurs_input = st.text_area("Entrez les multiplicateurs (du plus récent au plus ancien)", placeholder="Ex: 1.33x 2.74x 1.46x ...") tour_input = st.number_input("Dernier numéro de tour connu (ex: 10 si 1.33x est le plus récent)", min_value=1)
-
-if st.button("Calculer les prédictions"): try: values = [float(x.replace("x", "")) for x in multiplicateurs_input.strip().split() if "x" in x] preds = calcul_prediction(values, int(tour_input))
-
-st.subheader("Résultats des prédictions (Fiabilité ≥ 60%)")
-    for t, v, f, tag in preds:
-        if int(f.replace("%", "")) >= 60:
-            st.markdown(f"**{t}** → **{v}** — Fiabilité: **{f}** {tag}")
-except:
-    st.error("Erreur lors de la lecture des multiplicateurs. Assurez-vous du bon format (ex: 2.55x 1.40x ...)")
-
+        st.warning("Tsy nisy prediction fiabilité > 60%.")
