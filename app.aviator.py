@@ -1,41 +1,68 @@
-import streamlit as st import numpy as np import pandas as pd import random
+import streamlit as st
+import numpy as np
+import pandas as pd
+import random
 
---- Login Page ---
+# --- Authentification ---
+def check_login(username, password):
+    return username == "Topexacte" and password == "5312288612bet261"
 
-def login_page(): st.title("Prediction Expert by Mickael") username = st.text_input("Nom d'utilisateur") password = st.text_input("Mot de passe", type="password") if st.button("Se connecter"): if username == "Topexacte" and password == "5312288612bet261": st.session_state["logged_in"] = True else: st.error("Nom d'utilisateur ou mot de passe incorrect")
+def calculate_predictions(history):
+    multipliers = [float(x.replace("x", "")) for x in history.split()]
+    predictions = []
+    for i in range(1, 21):
+        recent = multipliers[-5:]
+        avg = np.mean(recent)
+        std = np.std(recent)
+        mod_vals = [int(str(x).split(".")[-1]) % 10 for x in recent if '.' in str(x)]
+        mod_score = sum([1 for m in mod_vals if m in [2, 4, 7]])  # simple pattern
 
---- Prediction Strategy Logic ---
+        pred_base = avg + random.uniform(-0.4, 0.6)
+        fiab = 60 + min(40, max(0, 10 * (mod_score + (std > 1.2) + (avg < 2.0))))
+        
+        if pred_base < 1.2:
+            fiab -= 10
+        
+        predictions.append({
+            "Tour": f"T{i + len(multipliers)}",
+            "Prédiction": round(pred_base, 2),
+            "Fiabilité": f"{min(99, max(30, int(fiab)))}%"
+        })
+        multipliers.append(pred_base)
+    return pd.DataFrame(predictions)
 
-def mod10_seed_pattern(values): mods = [int(str(v).split(".")[-1][:2]) % 10 for v in values] return mods
+# --- Interface ---
+st.set_page_config(page_title="Prediction Expert by Mickael", layout="centered")
 
-def rolling_stats(values): window = 5 roll_avg = pd.Series(values).rolling(window).mean().tolist() roll_std = pd.Series(values).rolling(window).std().tolist() return roll_avg, roll_std
+st.markdown("### **Prediction Expert by Mickael**")
+st.markdown("**Admin:** Mickael  |  **Contact:** 033 31 744 68")
+st.markdown("---")
 
-def prediction_expert(values): predictions = [] mods = mod10_seed_pattern(values) roll_avg, roll_std = rolling_stats(values) for i in range(len(values), len(values)+20): mod = mods[-1] if mods else 0 avg = roll_avg[-1] if roll_avg[-1] else 2 std = roll_std[-1] if roll_std[-1] else 0.5 rand_shift = random.uniform(-0.3, 0.3) pred = round(avg + std + mod * 0.05 + rand_shift, 2) pred = min(max(pred, 1.01), 10.0) fiab = random.randint(65, 90) predictions.append((f"T{i+1}", f"{pred}x", f"Fiabilité: {fiab}%")) mods.append(mod) return predictions
+# Login
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
 
---- Prediction Page ---
-
-def prediction_page(): st.title("Prediction Expert - Aviator")
-
-st.subheader("Admin: Mickael")
-st.text("Contact: 033 31 744 68")
-
-tour_input = st.text_area("Historique des multiplicateurs (séparés par 'x')",
-    placeholder="Exemple: 1.33x 2.74x 1.46x 72.61x 3.55x ...")
-tour_num = st.number_input("Numéro du tour le plus récent (ex: 133)", min_value=1, step=1)
-
-if st.button("Calculer"):
-    try:
-        cleaned = [float(x.replace("x", "")) for x in tour_input.split() if "x" in x]
-        predictions = prediction_expert(cleaned)
-        for i, (label, val, prob) in enumerate(predictions):
-            tour = tour_num + i + 1
-            st.markdown(f"**T{tour}** → {val} — {prob}")
-    except:
-        st.error("Erreur lors de l'analyse. Vérifiez l'entrée.")
-
---- Main App ---
-
-if "logged_in" not in st.session_state: st.session_state["logged_in"] = False
-
-if not st.session_state["logged_in"]: login_page() else: prediction_page()
-
+if not st.session_state.authenticated:
+    with st.form("login_form"):
+        username = st.text_input("Nom d'utilisateur")
+        password = st.text_input("Mot de passe", type="password")
+        submitted = st.form_submit_button("Se connecter")
+        if submitted and check_login(username, password):
+            st.session_state.authenticated = True
+            st.success("Connexion réussie!")
+        elif submitted:
+            st.error("Nom d'utilisateur ou mot de passe incorrect.")
+else:
+    st.success("Connecté en tant que Topexacte")
+    st.markdown("### **Entrer l'historique des multiplicateurs**")
+    st.markdown("*Format: 1.22x 3.45x 1.00x ...*")
+    history_input = st.text_area("Historique des tours précédents", height=150)
+    
+    if st.button("Calculer les prédictions"):
+        if history_input.strip() == "":
+            st.warning("Veuillez entrer l'historique des multiplicateurs.")
+        else:
+            st.markdown("---")
+            st.subheader("Résultats des prédictions (T+1 à T+20)")
+            df = calculate_predictions(history_input)
+            st.dataframe(df, use_container_width=True)
