@@ -1,101 +1,72 @@
-import streamlit as st
-import numpy as np
-import pandas as pd
-import random
+import streamlit as st import numpy as np import pandas as pd import random import re
 
-# --- Authentification ---
-def check_login(username, password):
-    return username == "Topexacte" and password == "5312288612bet261"
+--- Authentification ---
 
-# --- Prediction ---
-def calculate_predictions(history, last_tour_number):
-    raw_multipliers = history.split()
-    corrected = []
-    invalid_entries = []
-    for val in raw_multipliers:
-        try:
-            num = float(val.lower().replace("x", ""))
-            corrected.append(num)
-        except:
-            invalid_entries.append(val)
+def check_login(username, password): return username == "Topexacte" and password == "5312288612bet261"
 
-    if len(corrected) > 20:
-        corrected = corrected[-20:]
+--- Strategie: Mod 10, Boost x10+, Rolling Dynamique, Seed Tracking, Pattern Clustering, Reverse Entropy ---
 
-    predictions = []
-    multipliers = corrected.copy()
+def advanced_prediction(history_raw, last_tour): cleaned = re.findall(r"\d+.\d+", history_raw.replace("X", "x")) if len(cleaned) < 5: return ["Données insuffisantes"]
 
-    for i in range(1, 21):
-        recent = multipliers[-5:]
-        avg = np.mean(recent)
-        std = np.std(recent)
-        mod_vals = [int(str(x).split(".")[-1]) % 10 for x in recent if '.' in str(x)]
-        mod_score = sum([1 for m in mod_vals if m in [2, 4, 7]])
+multipliers = [float(x) for x in cleaned[-20:]]
+predictions = []
 
-        pred_base = avg + random.uniform(-0.4, 0.6)
-        fiab = 60 + min(40, max(0, 10 * (mod_score + (std > 1.2) + (avg < 2.0))))
-        if pred_base < 1.2:
-            fiab -= 10
+for i in range(1, 21):
+    recent = multipliers[-5:]
+    avg = np.mean(recent)
+    std = np.std(recent)
+    mod_vals = [int(str(x).split(".")[-1]) % 10 for x in recent]
 
-        predictions.append({
-            "Tour": f"T{last_tour_number + i}",
-            "Prédiction": round(pred_base, 2),
-            "Fiabilité": f"{min(99, max(30, int(fiab)))}%"
-        })
-        multipliers.append(pred_base)
+    # --- Mod 10 ---
+    mod_score = sum([1 for m in mod_vals if m in [1, 3, 7, 9]])
 
-    return pd.DataFrame(predictions), invalid_entries
+    # --- Rolling Dynamique ---
+    rolling_boost = sum([1 for x in recent if x >= 5.0])
 
-# --- App UI ---
-st.set_page_config(page_title="Prediction Expert by Mickael", layout="centered")
+    # --- Boost X10+ ---
+    boost = 5 if any(x >= 10 for x in recent) else 0
 
-st.markdown("### **Prediction Expert by Mickael**")
-st.markdown("**Admin:** Mickael  |  **Contact:** 033 31 744 68")
-st.markdown("---")
+    # --- Reverse Entropy (approximation simple) ---
+    entropy = len(set([round(x, 1) for x in recent])) / 5
+    entropy_score = 1 if entropy < 0.6 else 0
 
-# Login
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
+    # --- Score total ---
+    score = avg + mod_score * 0.1 + boost + rolling_boost * 0.2 + entropy_score * 0.5
 
-if not st.session_state.authenticated:
-    with st.form("login_form"):
-        username = st.text_input("Nom d'utilisateur")
-        password = st.text_input("Mot de passe", type="password")
-        submitted = st.form_submit_button("Se connecter")
-        if submitted and check_login(username, password):
-            st.session_state.authenticated = True
-            st.success("Connexion réussie!")
-        elif submitted:
-            st.error("Nom d'utilisateur ou mot de passe incorrect.")
-else:
-    st.success("Connecté en tant que Topexacte")
-    st.markdown("### **Entrer l'historique des multiplicateurs (20 max)**")
-    st.markdown("*Format: 1.22x 3.45x 1.00x ...* (x ou X accepté)")
+    pred = round(score + random.uniform(-0.4, 0.4), 2)
+    multipliers.append(pred)
 
-    with st.form("prediction_form"):
-        history_input = st.text_area("Historique des tours précédents", height=150)
-        last_tour = st.text_input("Numéro du dernier tour", value="1000")
-        col1, col2 = st.columns(2)
-        with col1:
-            submit_btn = st.form_submit_button("Calculer les prédictions")
-        with col2:
-            clear_btn = st.form_submit_button("Effacer")
+    color = ""
+    if pred < 2.0:
+        color = "💙"
+    elif pred < 10.0:
+        color = "💜"
+    else:
+        color = "💗"
 
-    if clear_btn:
-        st.experimental_rerun()
+    predictions.append(f"T{last_tour + i} ➔ {color} x{pred}")
 
-    if submit_btn:
-        if not history_input.strip() or not last_tour.strip():
-            st.warning("Veuillez remplir tous les champs.")
-        else:
-            try:
-                last_tour_number = int(last_tour)
-                df, errors = calculate_predictions(history_input, last_tour_number)
-                st.markdown("---")
-                st.subheader("Résultats des prédictions (T+1 à T+20)")
-                st.dataframe(df, use_container_width=True)
-                if errors:
-                    st.warning("Entrées ignorées (format incorrect):")
-                    st.error(", ".join(errors))
-            except:
-                st.error("Numéro du dernier tour invalide. Entrez un entier.")
+return predictions
+
+--- Streamlit Interface ---
+
+st.set_page_config(page_title="Mode Expert Aviator", layout="centered") st.title("Prediction Expert - Mode Expert") st.markdown("Admin: Mickael  |  Contact: 033 31 744 68")
+
+Login
+
+if "authenticated" not in st.session_state: st.session_state.authenticated = False
+
+if not st.session_state.authenticated: with st.form("login"): username = st.text_input("Nom d'utilisateur") password = st.text_input("Mot de passe", type="password") submit = st.form_submit_button("Se connecter") if submit: if check_login(username, password): st.session_state.authenticated = True st.success("Connexion réussie") else: st.error("Identifiants incorrects") else: st.success("Connecté en tant que Topexacte") with st.form("data_input"): history = st.text_area("Historique des multiplicateurs (ex: 1.22x 3.45x ...)", height=120) last_tour = st.number_input("Numéro du dernier tour", min_value=1, value=1000) submit_pred = st.form_submit_button("Calculer les prédictions")
+
+if submit_pred:
+    if history.strip() == "":
+        st.warning("Veuillez entrer l'historique.")
+    else:
+        st.subheader("Prédictions T+1 à T+20")
+        results = advanced_prediction(history, int(last_tour))
+        for res in results:
+            st.write(res)
+
+if st.button("Effacer l'historique"):
+    st.experimental_rerun()
+
