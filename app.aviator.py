@@ -1,18 +1,24 @@
 import streamlit as st
 import numpy as np
 import re
+import pandas as pd
 
-# --- Fonction de prédiction complète ---
+# --- Fonction de prédiction complète avec filtrage ---
 def prediction_combinee(historique, dernier_tour):
-    valeurs = [float(val.replace('x', '')) for val in historique]
-    prediction = []
-    fiabilites = []
+    valeurs_brutes = [float(val.replace('x', '')) for val in historique]
+    valeurs = []
 
-    # Rolling Prediction
+    for v in valeurs_brutes:
+        if v > 20:
+            v = 20.0
+        elif v > 10:
+            v = v * 0.7
+        valeurs.append(v)
+
+    prediction = []
     moyenne = np.mean(valeurs[-10:])
     ecart_type = np.std(valeurs[-10:])
 
-    # Génération de plusieurs prédictions (T+1 à T+20)
     for i in range(1, 21):
         prediction_val = round(moyenne + ((-1)**i) * (ecart_type * (i / 10)), 2)
 
@@ -24,7 +30,6 @@ def prediction_combinee(historique, dernier_tour):
 
         # Fiabilité (plus on s'éloigne du présent, moins c'est fiable)
         pourcentage = max(30, 100 - i * 3)
-
         prediction.append((dernier_tour + i, prediction_val, pourcentage))
 
     return prediction
@@ -50,5 +55,20 @@ if st.button("Calculer les prédictions"):
             for tour, val, confiance in predictions:
                 couleur = "**(Crash probable)**" if val < 2 else ("**(Haute valeur probable)**" if val >= 5 else "")
                 st.markdown(f"- **T{tour}** → **{val}x** — Fiabilité: **{confiance}%** {couleur}")
+                
+            # Export des prédictions en CSV
+            export_data = []
+            for tour, val, confiance in predictions:
+                export_data.append([tour, val, confiance])
+            
+            df_export = pd.DataFrame(export_data, columns=["Numéro de tour", "Prédiction (x)", "Fiabilité (%)"])
+
+            # Option d'exporter les résultats
+            st.download_button(
+                label="Télécharger les prédictions en CSV",
+                data=df_export.to_csv(index=False).encode('utf-8'),
+                file_name="predictions_aviator.csv",
+                mime="text/csv"
+            )
     else:
         st.error("Veuillez entrer les données d'historique.")
