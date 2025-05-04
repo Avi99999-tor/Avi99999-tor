@@ -8,66 +8,52 @@ import re
 def check_login(username, password):
     return username == "Topexacte" and password == "5312288612bet261"
 
-# --- Calculation of predictions ---
+# --- Prediction logic ---
 def calculate_predictions(history, last_tour):
-    multipliers = [float(x.replace("x", "")) for x in history.split()]
+    # Normalisation: remplacer X ou x par rien
+    history = re.sub(r'[Xx]', '', history)
+    parts = history.split()
+    if len(parts) < 5:
+        raise ValueError("Minimum 5 valeurs requises pour les prédictions.")
+
+    try:
+        multipliers = [float(x) for x in parts]
+    except:
+        raise ValueError("Une ou plusieurs valeurs ne sont pas valides.")
+
+    if len(multipliers) > 20:
+        multipliers = multipliers[-20:]
+
     predictions = []
-    
     for i in range(1, 21):
         recent = multipliers[-5:]
         avg = np.mean(recent)
         std = np.std(recent)
-        mod_vals = [int(str(x).split(".")[-1]) % 10 for x in recent if '.' in str(x)]
-        mod_score = sum([1 for m in mod_vals if m in [2, 4, 7]])  # simple pattern
+        mod_vals = [int(str(x).split(".")[-1]) % 10 for x in recent]
+        mod_score = sum([1 for m in mod_vals if m in [2, 4, 7]])
 
-        # Applying mod 10 strategy
-        mod_10 = (sum(mod_vals) % 10) / 10
-        pred_base = avg + random.uniform(-0.4, 0.6) + mod_10
-        
-        # Apply x10 boost strategy
-        if avg > 5:
-            pred_base *= 1.2
-        
-        # Apply rolling dynamic strategy (based on recent trends)
-        if std > 1.5:
-            pred_base += 0.3
-        
-        # Apply pattern clustering strategy (cluster recent values)
-        if len(set(recent)) < 3:
-            pred_base += 0.2
-        
-        # Apply reverse entropy approximation (based on the entropy of the recent values)
-        entropy = -sum([p * np.log2(p) if p > 0 else 0 for p in np.histogram(recent, bins=3)[0] / len(recent)])
-        pred_base += entropy * 0.5
+        # Reverse entropy approximation
+        entropy = sum(abs(recent[i] - recent[i - 1]) for i in range(1, len(recent)))
 
-        # Predicted value and its reliability
-        fiab = 60 + min(40, max(0, 10 * (mod_score + (std > 1.2) + (avg < 2.0))))
+        pred_base = avg + random.uniform(-0.4, 0.6)
+        fiab = 60 + min(40, int(mod_score * 5 + (std * 3) + (entropy / 5)))
+
         if pred_base < 1.2:
-            fiab -= 10
-        fiab = min(99, max(30, int(fiab)))
-        
-        # Assign color based on multiplier value
-        if pred_base < 2:
-            color = "💙"  # Blue
-        elif 2 <= pred_base < 10:
-            color = "💜"  # Purple
-        else:
-            color = "💗"  # Pink
-        
+            fiab -= 15
+
         predictions.append({
             "Tour": f"T{last_tour + i}",
             "Prédiction": round(pred_base, 2),
-            "Fiabilité": f"{fiab}%",
-            "Couleur": color
+            "Fiabilité": f"{min(99, max(30, fiab))}%"
         })
         multipliers.append(pred_base)
-    
-    return predictions
+
+    return pd.DataFrame(predictions)
 
 # --- Interface ---
 st.set_page_config(page_title="Prediction Expert by Mickael", layout="centered")
 
-st.markdown("### **Prediction Expert by Mickael**")
+st.markdown("## **Prediction Expert by Mickael**")
 st.markdown("**Admin:** Mickael  |  **Contact:** 033 31 744 68")
 st.markdown("---")
 
@@ -88,21 +74,23 @@ if not st.session_state.authenticated:
 else:
     st.success("Connecté en tant que Topexacte")
     st.markdown("### **Entrer l'historique des multiplicateurs**")
-    st.markdown("*Format: 1.22x 3.45x 1.00x ...*")
-    history_input = st.text_area("Historique des tours précédents", height=150)
+    st.markdown("*Exemple: 1.22x 3.45x 1.00x ... (max 20 valeurs)*")
     
-    # Input for last tour number
-    last_tour_input = st.number_input("Numéro du dernier tour", value=0, step=1)
-    
-    if st.button("Calculer les prédictions"):
-        if history_input.strip() == "":
-            st.warning("Veuillez entrer l'historique des multiplicateurs.")
-        else:
-            st.markdown("---")
-            st.subheader("Résultats des prédictions (T+1 à T+20)")
-            
-            predictions = calculate_predictions(history_input, last_tour_input)
-            
-            # Affichage des prédictions en liste
-            for prediction in predictions:
-                st.markdown(f"**{prediction['Tour']}**: {prediction['Prédiction']} x {prediction['Couleur']} - Fiabilité: {prediction['Fiabilité']}")
+    with st.form("prediction_form"):
+        history_input = st.text_area("Historique des tours précédents", height=150)
+        last_tour = st.number_input("Numéro du dernier tour connu", min_value=0, step=1)
+        submitted = st.form_submit_button("Calculer les prédictions")
+
+        if submitted:
+            if not history_input.strip():
+                st.warning("Veuillez entrer l'historique des multiplicateurs.")
+            else:
+                try:
+                    results = calculate_predictions(history_input, int(last_tour))
+                    st.success("Prédictions générées avec succès!")
+                    st.dataframe(results, use_container_width=True)
+                except ValueError as e:
+                    st.error(f"Erreur: {e}")
+
+    if st.button("Effacer l’historique"):
+        st.experimental_rerun()
