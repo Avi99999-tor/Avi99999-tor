@@ -2,23 +2,28 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import random
-import re
 
 # --- Authentification ---
 def check_login(username, password):
     return username == "Topexacte" and password == "5312288612bet261"
 
-# --- Prédiction avec stratégie sy coloration ---
-def calculate_predictions(history, last_tour):
-    clean_history = re.findall(r"(\d+\.\d+)[xX]", history)
-    if len(clean_history) < 5:
-        raise ValueError("Historique insuffisant (minimum 5 valeurs).")
-    if len(clean_history) > 20:
-        raise ValueError("Maximum 20 valeurs historiques autorisées.")
-    
-    multipliers = list(map(float, clean_history))
+# --- Prediction ---
+def calculate_predictions(history, last_tour_number):
+    raw_multipliers = history.split()
+    corrected = []
+    invalid_entries = []
+    for val in raw_multipliers:
+        try:
+            num = float(val.lower().replace("x", ""))
+            corrected.append(num)
+        except:
+            invalid_entries.append(val)
+
+    if len(corrected) > 20:
+        corrected = corrected[-20:]
+
     predictions = []
-    current_tour = last_tour
+    multipliers = corrected.copy()
 
     for i in range(1, 21):
         recent = multipliers[-5:]
@@ -32,25 +37,18 @@ def calculate_predictions(history, last_tour):
         if pred_base < 1.2:
             fiab -= 10
 
-        pred_round = round(pred_base, 2)
-        if pred_round < 2.0:
-            color = "💙"
-        elif pred_round < 10.0:
-            color = "💜"
-        else:
-            color = "💗"
-
         predictions.append({
-            "Tour": f"T{current_tour + i}",
-            "Prédiction": f"{color} x{pred_round}",
+            "Tour": f"T{last_tour_number + i}",
+            "Prédiction": round(pred_base, 2),
             "Fiabilité": f"{min(99, max(30, int(fiab)))}%"
         })
         multipliers.append(pred_base)
 
-    return pd.DataFrame(predictions)
+    return pd.DataFrame(predictions), invalid_entries
 
-# --- Page Configuration ---
+# --- App UI ---
 st.set_page_config(page_title="Prediction Expert by Mickael", layout="centered")
+
 st.markdown("### **Prediction Expert by Mickael**")
 st.markdown("**Admin:** Mickael  |  **Contact:** 033 31 744 68")
 st.markdown("---")
@@ -71,31 +69,33 @@ if not st.session_state.authenticated:
             st.error("Nom d'utilisateur ou mot de passe incorrect.")
 else:
     st.success("Connecté en tant que Topexacte")
-    st.markdown("### **Entrer l'historique des multiplicateurs**")
-    st.markdown("*Format: 1.22x 3.45x 1.00x ... (max: 20 valeurs)*")
+    st.markdown("### **Entrer l'historique des multiplicateurs (20 max)**")
+    st.markdown("*Format: 1.22x 3.45x 1.00x ...* (x ou X accepté)")
 
     with st.form("prediction_form"):
         history_input = st.text_area("Historique des tours précédents", height=150)
-        last_tour = st.text_input("Numéro de la dernière tour", value="100")
-        col1, col2 = st.columns([1, 1])
+        last_tour = st.text_input("Numéro du dernier tour", value="1000")
+        col1, col2 = st.columns(2)
         with col1:
-            submit_pred = st.form_submit_button("Calculer les prédictions")
+            submit_btn = st.form_submit_button("Calculer les prédictions")
         with col2:
-            clear_input = st.form_submit_button("Effacer")
-    
-    if clear_input:
+            clear_btn = st.form_submit_button("Effacer")
+
+    if clear_btn:
         st.experimental_rerun()
 
-    if submit_pred:
-        if not history_input.strip():
-            st.warning("Veuillez entrer l'historique.")
-        elif not last_tour.isdigit():
-            st.error("Le numéro de la dernière tour doit être un entier.")
+    if submit_btn:
+        if not history_input.strip() or not last_tour.strip():
+            st.warning("Veuillez remplir tous les champs.")
         else:
             try:
-                results = calculate_predictions(history_input, int(last_tour))
+                last_tour_number = int(last_tour)
+                df, errors = calculate_predictions(history_input, last_tour_number)
+                st.markdown("---")
                 st.subheader("Résultats des prédictions (T+1 à T+20)")
-                for index, row in results.iterrows():
-                    st.markdown(f"- **{row['Tour']}** → {row['Prédiction']} — {row['Fiabilité']}")
-            except ValueError as e:
-                st.error(str(e))
+                st.dataframe(df, use_container_width=True)
+                if errors:
+                    st.warning("Entrées ignorées (format incorrect):")
+                    st.error(", ".join(errors))
+            except:
+                st.error("Numéro du dernier tour invalide. Entrez un entier.")
