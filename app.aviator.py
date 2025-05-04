@@ -1,70 +1,68 @@
-import streamlit as st
-import numpy as np
-import random
+import streamlit as st import numpy as np
 
-st.title("Prédiction Expert by Mickael")
-st.subheader("Version combinée: mod 10 + seed + logique expert")
+st.set_page_config(page_title="Prediction Expert by Mickael", layout="centered") st.title("Prediction Expert by Mickael")
 
-# Entrée utilisateur
-multiplicateurs_input = st.text_area("**Entrez les multiplicateurs (du plus récent au plus ancien)**", 
-                                     placeholder="Ex: 2.14x 1.26x 5.87x ...")
+Input for last known multiplier and tour number
 
-dernier_tour = st.number_input("**Numéro du dernier tour (ex: 74 si 2.14x est le plus récent)**", min_value=1, value=50)
+latest_tour = st.number_input("Tour le plus récent (Ex: 10)", min_value=1, step=1) latest_multiplier = st.number_input("Multiplier du dernier tour (Ex: 1.33)", step=0.01, format="%.2f")
 
-def nettoyer_donnees(texte):
-    valeurs = texte.replace(',', '.').lower().replace('x', '').split()
-    try:
-        return [float(v) for v in valeurs if float(v) > 0]
-    except:
-        return []
+Input for historical multipliers
 
-def fiabilite(pred):
-    if pred >= 5:
-        return 85 + random.randint(0, 5)
-    elif pred >= 3:
-        return 75 + random.randint(0, 5)
-    elif pred <= 1.2:
-        return 60 + random.randint(-5, 5)
+user_input = st.text_area("Coller les multiplicateurs (séparés par espace ou retour à la ligne)")
+
+Processing input data
+
+def parse_input(data): parts = data.replace("\n", " ").split() return [float(p.lower().replace('x', '')) for p in parts if p.replace('x', '').replace('.', '').isdigit()]
+
+Modulo 10 analyzer
+
+def mod10_analysis(multipliers): mods = [int(str(x).split('.')[-1][:2]) % 10 for x in multipliers] counts = {i: mods.count(i) for i in range(10)} probable_mod = max(counts, key=counts.get) return probable_mod, counts
+
+Rolling average and rebond detector
+
+def rolling_prediction(multipliers, last_multiplier): results = [] window = 10 for i in range(1, 21): recent = multipliers[-window:] mean = np.mean(recent) std = np.std(recent) score = 0
+
+# Rules
+    if last_multiplier < 1.20:
+        score += 1.5  # Crash rebound probable
+    if mean < 2:
+        score += 0.5
+    if std > 2:
+        score += 0.5
+    if len([x for x in recent if x >= 5]) == 0:
+        score += 1  # No x5 recently, expected soon
+
+    # Modulo 10 condition
+    mod_seed, _ = mod10_analysis(recent)
+    if mod_seed in [3, 6, 9]:
+        score += 0.5
+
+    # Probability estimation
+    prob = min(95, 50 + score * 10)
+
+    # Prediction value
+    if score >= 3:
+        pred = round(np.random.uniform(4.5, 8), 2)
+    elif score >= 2:
+        pred = round(np.random.uniform(2, 4.5), 2)
     else:
-        return 70 + random.randint(-5, 5)
+        pred = round(np.random.uniform(1.1, 2), 2)
 
-def analyse_mod_seed(liste):
-    chiffres_mod = [int(str(x).split(".")[-1]) % 10 for x in liste]
-    moy_mod = sum(chiffres_mod) / len(chiffres_mod)
-    return moy_mod
+    results.append({
+        'tour': f"T{latest_tour + i}",
+        'prediction': pred,
+        'fiabilité': f"{'Assuré' if prob >= 80 else str(prob)+'%'}"
+    })
+    multipliers.append(pred)
+    last_multiplier = pred
+return results
 
-def prediction_expert(multiplicateurs, base_tour):
-    résultats = []
-    rolling_mean = np.mean(multiplicateurs)
-    mod_score = analyse_mod_seed(multiplicateurs)
-    
-    for i in range(1, 21):  # T+1 à T+20
-        seed = int((mod_score + rolling_mean + i * 3.73) * 1000) % 97
-        pred = round(abs((np.sin(seed) + np.cos(i * mod_score)) * 3 + random.uniform(0.2, 1.5)), 2)
-        
-        # Filtrage et ajustement
-        if pred < 1.00:
-            pred = round(0.99 + random.uniform(0.01, 0.2), 2)
-        elif pred > 10:
-            pred = round(6 + random.uniform(0.5, 2.5), 2)
-        
-        fiab = fiabilite(pred)
-        label = "Assuré" if fiab >= 80 else "Crash probable" if pred <= 1.20 else ""
-        
-        résultats.append((base_tour + i, pred, fiab, label))
-    
-    return résultats
+Run prediction
 
-if multiplicateurs_input:
-    historique = nettoyer_donnees(multiplicateurs_input)
-    
-    if len(historique) < 10:
-        st.warning("Veuillez entrer au moins 10 multiplicateurs.")
-    else:
-        résultats = prediction_expert(historique, int(dernier_tour))
-        st.markdown("### **Résultats des prédictions (T+1 à T+20) :**")
-        for tour, val, pourcent, label in résultats:
-            line = f"**T{tour}** → **{val}x** — Fiabilité: **{pourcent}%**"
-            if label:
-                line += f" **({label})**"
-            st.markdown("- " + line)
+if user_input: historique = parse_input(user_input) if historique: predictions = rolling_prediction(historique, latest_multiplier) st.subheader("Résultats Prédits (T+1 à T+20)") for p in predictions: st.markdown(f"{p['tour']} ➜ {p['prediction']}x — Fiabilité: {p['fiabilité']}")
+
+mod, mod_stat = mod10_analysis(historique)
+    st.info(f"Mod10 dominant: {mod} — Détails: {mod_stat}")
+else:
+    st.warning("Entrée invalide. Veuillez coller des multiplicateurs valides.")
+
