@@ -1,5 +1,9 @@
-import streamlit as st import numpy as np import pandas as pd import random import re
 
+import streamlit as st
+import numpy as np
+import pandas as pd
+import random
+import re
 Login page
 
 def login_page(): st.title("Prediction Expert by Mickael") username = st.text_input("Nom d'utilisateur") password = st.text_input("Mot de passe", type="password") if st.button("Se connecter"): if username == "Topexacte" and password == "5312288612bet261": st.session_state["logged_in"] = True else: st.error("Nom d'utilisateur ou mot de passe incorrect.")
