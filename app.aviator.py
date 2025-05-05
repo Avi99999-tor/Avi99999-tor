@@ -1,29 +1,30 @@
 import streamlit as st import pandas as pd
 
-Fonction de prédiction avec stratégie Mod 10
+Fonction de prédiction simple (mod10) basé sur le dernier tour
 
-def predict_next_mod10(history): if not history: return "Pas de données." try: last_value = float(history[-1]) prediction = (int(last_value * 100) % 10) return f"Mod10 (chiffre après virgule): {prediction}" except: return "Erreur dans les données."
+def predict_mod10(last_multiplier): # Extraire la partie décimale en entier decimal = int((last_multiplier % 1) * 100) mod10 = decimal % 10 # Déterminer la prédiction selon mod10 if mod10 < 3: return "Prévision: X1 - X2" elif mod10 < 7: return "Prévision: X2 - X5" else: return "Prévision: X5+"
 
 Interface Streamlit
 
-st.set_page_config(page_title="Aviator Prediction Expert - Mode Mod10", layout="centered") st.title("Aviator Prediction Expert") st.header("Stratégie : Mod 10")
+st.set_page_config(page_title="Aviator Prediction", layout="centered") st.title("Aviator Prediction Expert")
 
-Saisie des multiplicateurs
+Saisie de l'historique des multiplicateurs
 
-user_input = st.text_area("Historique de multiplicateurs (séparés par espace ou retour à la ligne)")
+history_input = st.text_area( "Entrez l'historique des multiplicateurs (ex: 3.33 1.45 2.06 ...):", height=150 )
 
-if user_input: # Traitement du texte en liste de valeurs raw_values = user_input.replace('\n', ' ').split() cleaned_values = [] for val in raw_values: try: cleaned_values.append(float(val.lower().replace('x', ''))) except: pass
+if history_input: # Nettoyage et parsing values = [] for token in history_input.replace('\n', ' ').split(): try: values.append(float(token.lower().replace('x', ''))) except: pass
 
-if cleaned_values:
-    st.write(f"**Numéro du dernier tour : T{len(cleaned_values)}**")
-    st.write("**Historique de tours (multiplicateurs)**")
-    st.write(cleaned_values)
-
-    # Prédiction selon stratégie Mod 10
-    prediction = predict_next_mod10(cleaned_values)
-    st.success(f"Prédiction prochaine tendance : {prediction}")
+if values:
+    # Afficher numéro du dernier tour
+    last_index = len(values)
+    st.write(f"**Numéro du dernier tour : T{last_index}**")
+    st.write(f"**Dernier multiplicateur : {values[-1]:.2f}x**")
+    # Prédiction
+    prediction = predict_mod10(values[-1])
+    st.subheader("Prédiction suivante :")
+    st.success(prediction)
 else:
-    st.error("Aucune donnée valide détectée.")
+    st.error("Aucune valeur valide détectée.")
 
-else: st.info("Veuillez entrer l'historique des multiplicateurs.")
+ellse: st.info("Veuillez entrer les multiplicateurs pour générer une prédiction.")
 
