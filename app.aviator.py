@@ -15,7 +15,10 @@ def login_page():
         else:
             st.error("Nom d'utilisateur ou mot de passe incorrect.")
 
-Rolling average strategy
+def rolling_average_strategy(values):
+    # Logic manokana ho an'ny rolling average
+    # Ity dia ho an'ny fanombanana tony amin'ny alalan'ny fanombanana ara-statistika.
+    # Add code logic here
 
 def rolling_average_strategy(values): averages = [] std_devs = [] for i in range(len(values)): window = values[max(0, i-5):i+1] if window: avg = np.mean(window) std = np.std(window) averages.append(avg) std_devs.append(std) else: averages.append(None) std_devs.append(None) return averages, std_devs
 
