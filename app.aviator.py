@@ -1,29 +1,29 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
+import streamlit as st import pandas as pd
 
-st.set_page_config(page_title="Aviator Prediction Expert", layout="centered")
-st.title("Aviator Prediction Expert")
+Fonction de prédiction avec stratégie Mod 10
 
-@st.cache_data
-def generate_dummy_data():
-    np.random.seed(42)
-    multipliers = np.round(np.random.uniform(1.0, 50.0, 180), 2)
-    df = pd.DataFrame({'multiplier': multipliers})
-    df['decimal_part'] = (df['multiplier'] % 1) * 100
-    df['mod_10'] = df['decimal_part'] % 10
-    return df
+def predict_next_mod10(history): if not history: return "Pas de données." try: last_value = float(history[-1]) prediction = (int(last_value * 100) % 10) return f"Mod10 (chiffre après virgule): {prediction}" except: return "Erreur dans les données."
 
-data = generate_dummy_data()
+Interface Streamlit
 
-window = st.sidebar.slider('Fenêtre (rounds)', 5, 20, 10)
-threshold = st.sidebar.slider('Seuil prob X5+', 0.5, 0.9, 0.7)
+st.set_page_config(page_title="Aviator Prediction Expert - Mode Mod10", layout="centered") st.title("Aviator Prediction Expert") st.header("Stratégie : Mod 10")
 
-if st.sidebar.button('Prédire X5+'):
-    proba = (data['multiplier'].tail(window) > 5).mean()
-    decision = proba >= threshold
-    st.metric('Proba X5+ (%)', f"{proba * 100:.1f}")
-    st.success("✅ Mety hilatsaka X5+" if decision else "❌ Tsy azo atokisana")
+Saisie des multiplicateurs
 
-st.header("Données récentes")
-st.dataframe(data.tail(20)[['multiplier', 'decimal_part', 'mod_10']])
+user_input = st.text_area("Historique de multiplicateurs (séparés par espace ou retour à la ligne)")
+
+if user_input: # Traitement du texte en liste de valeurs raw_values = user_input.replace('\n', ' ').split() cleaned_values = [] for val in raw_values: try: cleaned_values.append(float(val.lower().replace('x', ''))) except: pass
+
+if cleaned_values:
+    st.write(f"**Numéro du dernier tour : T{len(cleaned_values)}**")
+    st.write("**Historique de tours (multiplicateurs)**")
+    st.write(cleaned_values)
+
+    # Prédiction selon stratégie Mod 10
+    prediction = predict_next_mod10(cleaned_values)
+    st.success(f"Prédiction prochaine tendance : {prediction}")
+else:
+    st.error("Aucune donnée valide détectée.")
+
+else: st.info("Veuillez entrer l'historique des multiplicateurs.")
+
