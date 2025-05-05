@@ -24,7 +24,6 @@ model = load_model('output/aviator_model.joblib')
 @st.cache_data
 def load_and_prepare_data(path: str) -> pd.DataFrame:
     df = pd.read_csv(path)
-    # Feature engineering minimal (adapter selon votre pipeline)
     df = df[df['multiplier'] > 1.0]
     df['decimal_part'] = (df['multiplier'] % 1) * 100
     df['mod_10'] = df['decimal_part'] % 10
@@ -40,8 +39,7 @@ st.sidebar.header('Paramètres de prédiction')
 window = st.sidebar.slider('Fenêtre rolling (rounds)', 5, 20, 10)
 threshold = st.sidebar.slider('Seuil probabilité X5+', 0.5, 0.9, 0.7)
 st.sidebar.markdown(
-    "---
-"
+    "---\n"
     "**Instructions**: Déplacez les sliders pour ajuster la fenêtre de calcul rolling et le seuil de décision."
 )
 
