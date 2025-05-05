@@ -1,89 +1,77 @@
-import streamlit as st
-import numpy as np
-import pandas as pd
-import random
-import re
+import streamlit as st import numpy as np import re import random
 
-# Fonctions auxiliaires
-def mod10_strategy(values):
-    return [int(v * 100) % 10 for v in values]
+--- Login Page ---
 
-def seed_pattern_strategy(values):
-    return [int(v * 1000) % 100 for v in values]
+def login_page(): st.title("Prediction Expert by Mickael") username = st.text_input("Nom d'utilisateur") password = st.text_input("Mot de passe", type="password") if st.button("Se connecter"): if username == "Topexacte" and password == "5312288612bet261": st.session_state["logged_in"] = True else: st.error("Nom d'utilisateur ou mot de passe incorrect.")
 
-def rolling_average_strategy(values):
-    averages = []
-    std_devs = []
-    for i in range(len(values)):
-        window = values[max(0, i - 5):i + 1]
-        if window:
-            avg = np.mean(window)
-            std = np.std(window)
-            averages.append(avg)
-            std_devs.append(std)
-        else:
-            averages.append(None)
-            std_devs.append(None)
-    return averages, std_devs
+--- Strategies ---
 
-# Fonction principale de prédiction
-def prediction_boost_piege(values):
-    mods = mod10_strategy(values)
-    seeds = seed_pattern_strategy(values)
-    avg, std = rolling_average_strategy(values)
+def mod10_strategy(values): return [int(v * 100) % 10 for v in values]
 
+def seed_pattern_strategy(values): return [int(v * 1000) % 100 for v in values]
+
+def rolling_avg_std(values, window=5): avg, std = [], [] for i in range(len(values)): win = values[max(0, i-window+1):i+1] avg.append(np.mean(win)) std.append(np.std(win)) return avg, std
+
+--- Prediction Piégé & Boost ---
+
+def predict_boost_piege(values, last_tour): mods = mod10_strategy(values) seeds = seed_pattern_strategy(values) avg, std = rolling_avg_std(values)
+
+piégé_tour = None
+results = []
+for i in range(1, 21):  # T+1 to T+20
+    real_t = last_tour + i
     mod = mods[-1]
     seed = seeds[-1]
-    a = avg[-1]
-    s = std[-1]
+    a, s = avg[-1], std[-1]
+    rand = random.uniform(-0.3, 0.3)
+    is_piege = False
+    is_boost = False
 
-    predictions = []
-    piégé_tour = None
+    # Piégé logic
+    if not piégé_tour and mod in [0,1,2] and seed % 3 == 0 and random.random() < 0.35:
+        pred = 1.00
+        label = "🛑 Piége"
+        fiab = 98
+        piégé_tour = i
+        is_piege = True
+    # Boost after piège
+    elif piégé_tour and i <= piégé_tour + 3:
+        pred = round(random.uniform(4.0, 12.0), 2)
+        label = "🚀 Boost"
+        fiab = 95
+        is_boost = True
+    else:
+        pred = round(a + (mod*0.06) + (seed%5)*0.02 + s + rand, 2)
+        pred = max(1.00, min(pred, 50.0))
+        label = ""
+        fiab = random.randint(70, 90)
 
-    for i in range(5, 21):  # T+5 à T+20
-        is_piége = False
-        is_boost = False
+    results.append((f"T{real_t}", f"{pred}x", f"Fiabilité: {fiab}%", label))
 
-        if mod in [0, 1, 2] and seed % 3 == 0 and random.random() < 0.3:
-            pred = 1.00
-            fiab = 98
-            is_piége = True
-            piégé_tour = i
-        elif piégé_tour and i in range(piégé_tour + 1, piégé_tour + 4):
-            pred = round(random.uniform(4.0, 15.0), 2)
-            fiab = 95
-            is_boost = True
-        else:
-            rand = random.uniform(-0.2, 0.2)
-            pred = round(a + (mod * 0.06) + (seed % 5) * 0.02 + s + rand, 2)
-            pred = max(1.00, min(pred, 50.0))
-            fiab = random.randint(70, 92)
+    # update
+    values.append(pred)
+    mods.append(mod10_strategy([pred])[0])
+    seeds.append(seed_pattern_strategy([pred])[0])
+    avg, std = rolling_avg_std(values)
 
-        label = "Piégé" if is_piége else "Boost" if is_boost else ""
-        predictions.append((f"T+{i}", f"{pred}x", f"Fiabilité: {fiab}%", label))
+return results
 
-        # Mise à jour pour le rolling
-        values.append(pred)
-        mods.append(mod10_strategy([pred])[0])
-        seeds.append(seed_pattern_strategy([pred])[0])
-        a, s = rolling_average_strategy(values)[0][-1], rolling_average_strategy(values)[1][-1]
+--- Main App ---
 
-    return predictions
+if "logged_in" not in st.session_state: st.session_state["logged_in"] = False
 
-# Interface Streamlit
-st.title("🎯 Expert Aviator: Stratégie Piégé & Boost")
+if not st.session_state["logged_in"]: login_page() else: st.title("🔥 Aviator Piégé & Boost Prediction") st.text("Admin: Mickael | Contact: 033 31 744 68") st.markdown("Entrer le numéro du dernier tour (ex: 72)") last_tour = st.number_input("Dernier tour", min_value=1, step=1) st.markdown("Historique des multiplicateurs (ex: 1.23 4.56 2.10)") inp = st.text_area("Multiplicateurs précédents", height=120)
 
-input_values = st.text_area("Entrez les multiplicateurs précédents (ex: 1.23 2.45 3.67)")
-
-if st.button("Prédire"):
+if st.button("Prédire T+1 à T+20"):
     try:
-        values = [float(v) for v in re.findall(r"\d+\.\d+", input_values)]
+        values = [float(v) for v in re.findall(r"\d+\.\d+", inp)]
         if len(values) < 5:
-            st.warning("Veuillez entrer au moins 5 valeurs.")
+            st.warning("Au moins 5 valeurs requises.")
         else:
-            results = prediction_boost_piege(values)
-            for r in results:
-                label = f"🛑 {r[3]}" if r[3] == "Piégé" else f"🚀 {r[3]}" if r[3] == "Boost" else ""
-                st.write(f"{r[0]} —> {r[1]} | {r[2]} {label}")
-    except:
-        st.error("Format invalide. Utilisez des nombres séparés par des espaces.")
+            preds = predict_boost_piege(values, last_tour)
+            st.markdown("### Prédictions:")
+            for tour, mult, fiab, lbl in preds:
+                st.write(f"{tour} → {mult} ({fiab}) {lbl}")
+    except Exception as e:
+        st.error(f"Erreur: {e}")
+
