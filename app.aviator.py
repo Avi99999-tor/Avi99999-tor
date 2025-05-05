@@ -4,23 +4,18 @@ import pandas as pd
 import random
 import re
 
-# Login page
-def login_page():
-    st.title("Prediction Expert by Mickael")
-    username = st.text_input("Nom d'utilisateur")
-    password = st.text_input("Mot de passe", type="password")
-    if st.button("Se connecter"):
-        if username == "Topexacte" and password == "5312288612bet261":
-            st.session_state["logged_in"] = True
-        else:
-            st.error("Nom d'utilisateur ou mot de passe incorrect.")
+# Fonctions auxiliaires
+def mod10_strategy(values):
+    return [int(v * 100) % 10 for v in values]
 
-# Rolling average strategy
+def seed_pattern_strategy(values):
+    return [int(v * 1000) % 100 for v in values]
+
 def rolling_average_strategy(values):
     averages = []
     std_devs = []
     for i in range(len(values)):
-        window = values[max(0, i-5):i+1]
+        window = values[max(0, i - 5):i + 1]
         if window:
             avg = np.mean(window)
             std = np.std(window)
@@ -31,80 +26,64 @@ def rolling_average_strategy(values):
             std_devs.append(None)
     return averages, std_devs
 
-# Mod10 strategy
-def mod10_strategy(values):
-    return [int(v * 100) % 10 for v in values]
-
-# Seed pattern strategy
-def seed_pattern_strategy(values):
-    return [int(v * 1000) % 100 for v in values]
-
-# Prediction Expert function
-def prediction_expert(values):
+# Fonction principale de prédiction
+def prediction_boost_piege(values):
     mods = mod10_strategy(values)
     seeds = seed_pattern_strategy(values)
     avg, std = rolling_average_strategy(values)
 
+    mod = mods[-1]
+    seed = seeds[-1]
+    a = avg[-1]
+    s = std[-1]
+
     predictions = []
-    for i in range(1, 21):
-        mod = mods[-1] if mods else 1
-        seed = seeds[-1] if seeds else 1
-        a = avg[-1] if avg[-1] is not None else 1.6
-        s = std[-1] if std[-1] is not None else 0.5
+    piégé_tour = None
 
-        rand = random.uniform(-0.3, 0.3)
-        is_extreme = False
+    for i in range(5, 21):  # T+5 à T+20
+        is_piége = False
+        is_boost = False
 
-        # Booster automatique X1.00
-        if mod in [0, 1, 2] and seed % 5 == 0 and random.random() < 0.3:
+        if mod in [0, 1, 2] and seed % 3 == 0 and random.random() < 0.3:
             pred = 1.00
+            fiab = 98
+            is_piége = True
+            piégé_tour = i
+        elif piégé_tour and i in range(piégé_tour + 1, piégé_tour + 4):
+            pred = round(random.uniform(4.0, 15.0), 2)
             fiab = 95
-            is_extreme = True
-        # Booster automatique X10+
-        elif mod in [8, 9] and seed % 7 == 0 and s > 0.7 and random.random() < 0.2:
-            pred = round(random.uniform(10.0, 50.0), 2)
-            fiab = 96
-            is_extreme = True
+            is_boost = True
         else:
-            booster = 0
-            if mod in [0, 1] and random.random() < 0.1:
-                booster = -1.0
-            elif mod in [7, 8, 9] and seed % 10 > 5 and random.random() < 0.1:
-                booster = 5.0
-
-            pred = round(a + (mod * 0.06) + (seed % 4) * 0.03 + s + rand + booster, 2)
+            rand = random.uniform(-0.2, 0.2)
+            pred = round(a + (mod * 0.06) + (seed % 5) * 0.02 + s + rand, 2)
             pred = max(1.00, min(pred, 50.0))
-            fiab = random.randint(70, 95)
+            fiab = random.randint(70, 92)
 
-        # Rolling boost
-        if i in [7, 13, 19] and not is_extreme:
-            pred += random.uniform(0.6, 2.5)
-            pred = min(pred, 50.0)
+        label = "Piégé" if is_piége else "Boost" if is_boost else ""
+        predictions.append((f"T+{i}", f"{pred}x", f"Fiabilité: {fiab}%", label))
 
-        predictions.append((f"T+{i}", f"{pred}x", f"Fiabilité: {fiab}%"))
-
-        mods.append(mod)
-        seeds.append(seed)
-        avg.append(a)
-        std.append(s)
+        # Mise à jour pour le rolling
+        values.append(pred)
+        mods.append(mod10_strategy([pred])[0])
+        seeds.append(seed_pattern_strategy([pred])[0])
+        a, s = rolling_average_strategy(values)[0][-1], rolling_average_strategy(values)[1][-1]
 
     return predictions
 
-# Main App
-if "logged_in" not in st.session_state:
-    login_page()
-else:
-    st.title("Expert Aviator Prediction")
+# Interface Streamlit
+st.title("🎯 Expert Aviator: Stratégie Piégé & Boost")
 
-    input_values = st.text_area("Entrez les derniers multiplicateurs (ex: 1.23 4.56 2.10)")
-    if st.button("Prédire"):
-        try:
-            values = [float(v) for v in re.findall(r"\d+\.\d+", input_values)]
-            if len(values) < 5:
-                st.warning("Veuillez entrer au moins 5 valeurs.")
-            else:
-                results = prediction_expert(values)
-                for r in results:
-                    st.write(r)
-        except:
-            st.error("Format invalide. Utilisez des nombres séparés par des espaces.")
+input_values = st.text_area("Entrez les multiplicateurs précédents (ex: 1.23 2.45 3.67)")
+
+if st.button("Prédire"):
+    try:
+        values = [float(v) for v in re.findall(r"\d+\.\d+", input_values)]
+        if len(values) < 5:
+            st.warning("Veuillez entrer au moins 5 valeurs.")
+        else:
+            results = prediction_boost_piege(values)
+            for r in results:
+                label = f"🛑 {r[3]}" if r[3] == "Piégé" else f"🚀 {r[3]}" if r[3] == "Boost" else ""
+                st.write(f"{r[0]} —> {r[1]} | {r[2]} {label}")
+    except:
+        st.error("Format invalide. Utilisez des nombres séparés par des espaces.")
