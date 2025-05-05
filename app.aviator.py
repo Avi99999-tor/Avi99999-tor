@@ -5,7 +5,6 @@ import pandas as pd
 import random
 import re
 
-# --- Login Page ---
 def login_page():
     st.title("Prediction Expert by Mickael")
     username = st.text_input("Nom d'utilisateur")
@@ -14,8 +13,7 @@ def login_page():
         if username == "Topexacte" and password == "5312288612bet261":
             st.session_state["logged_in"] = True
         else:
-            st.error("Nom d'utilisateur ou mot de passe incorrect")
-def login_page(): st.title("Prediction Expert by Mickael") username = st.text_input("Nom d'utilisateur") password = st.text_input("Mot de passe", type="password") if st.button("Se connecter"): if username == "Topexacte" and password == "5312288612bet261": st.session_state["logged_in"] = True else: st.error("Nom d'utilisateur ou mot de passe incorrect.")
+            st.error("Nom d'utilisateur ou mot de passe incorrect.")
 
 Rolling average strategy
 
