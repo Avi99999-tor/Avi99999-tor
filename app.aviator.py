@@ -14,12 +14,14 @@ def load_data(path):
     df['lag'] = df['multiplier'].shift(1)
     return df.dropna().reset_index(drop=True)
 
-# Charger données
- data = load_data('data/processed_data.csv')
+# Charger les données
+# Assurez-vous que 'data/processed_data.csv' existe
+data = load_data('data/processed_data.csv')
 
 # Saisie ny multiplier anio
-last_default = float(round(data['multiplier'].iloc[-1], 2))
-today = st.sidebar.number_input('Ampidiro ny multiplier anio:', value=last_default, step=0.01)
+today_default = round(data['multiplier'].iloc[-1], 2)
+today = st.sidebar.number_input('Ampidiro ny multiplier anio:', value=today_default, step=0.01)
+
 if st.sidebar.button('Ampidiro anio'):
     new_row = {
         'multiplier': today,
