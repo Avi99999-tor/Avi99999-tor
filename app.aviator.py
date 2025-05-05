@@ -1,99 +1,57 @@
-import streamlit as st
-import numpy as np
-import pandas as pd
-import random
-import re
+import streamlit as st import numpy as np import pandas as pd import random import re
 
-# STRATÉGIE 1: Mod 10
-def mod10_strategy(values):
-    return [int(str(v).split(".")[1]) % 10 if "." in str(v) else 0 for v in values]
+--- STRATEGIES ---
 
-# STRATÉGIE 2: Seed pattern tracking (chiffres après virgule transformés)
-def seed_pattern_strategy(values):
-    return [sum(int(c) for c in str(v).split(".")[1]) if "." in str(v) else 0 for v in values]
+def mod10_strategy(values): return [int(float(v) * 100) % 10 for v in values]
 
-# STRATÉGIE 3: Moyenne mobile sy écart type
-def rolling_average_strategy(values, window=5):
-    averages, std_devs = [], []
-    for i in range(len(values)):
-        start = max(0, i - window + 1)
-        segment = values[start:i + 1]
-        averages.append(np.mean(segment))
-        std_devs.append(np.std(segment))
-    return averages, std_devs
+def seed_pattern_strategy(values): seeds = [] for v in values: number = float(v) after_decimal = int(str(number).split(".")[1][:2]) if "." in str(number) else 0 seeds.append(after_decimal) return seeds
 
-# STRATÉGIE PRINCIPALE: Prediction Expert
-def prediction_expert(values):
-    mods = mod10_strategy(values)
-    seeds = seed_pattern_strategy(values)
-    avg, std = rolling_average_strategy(values)
+def rolling_average_strategy(values): avg, std = [], [] for i in range(len(values)): window = values[max(0, i-5):i+1] nums = [float(v) for v in window] avg.append(np.mean(nums)) std.append(np.std(nums)) return avg, std
 
-    predictions = []
-    for i in range(1, 21):
-        mod = mods[-1] if mods else 1
-        seed = seeds[-1] if seeds else 1
-        a = avg[-1] if avg[-1] is not None else 1.6
-        s = std[-1] if std[-1] is not None else 0.5
+--- EXPERT PREDICTION ---
 
-        rand = random.uniform(-0.3, 0.3)
+def prediction_expert(values): mods = mod10_strategy(values) seeds = seed_pattern_strategy(values) avg, std = rolling_average_strategy(values)
 
-        # BOOSTER automatique: piège sy explosion
-        booster = 0
-        if mod in [0, 1] and random.random() < 0.15:
-            booster = -1.0  # X1.00 probable
-        elif mod in [7, 8, 9] and seed % 10 > 5 and random.random() < 0.10:
-            booster = 5.0  # X10 probable
+predictions = []
+rolling_boost_turns = [7, 13, 19]
+for i in range(1, 21):
+    mod = mods[-1]
+    seed = seeds[-1]
+    a = avg[-1] if avg[-1] is not None else 1.8
+    s = std[-1] if std[-1] is not None else 0.6
 
-        pred = round(a + (mod * 0.06) + (seed % 4) * 0.03 + s + rand + booster, 2)
-        pred = max(1.00, min(pred, 50.0))
+    rand = random.uniform(-s, s)
+    booster = 0
+    if mod in [0, 1, 2] and seed % 10 < 4 and random.random() < 0.20:
+        booster = -0.9
+    elif mod in [7, 8, 9] and seed % 10 > 5 and random.random() < 0.12:
+        booster = 7.0
+    if i in rolling_boost_turns:
+        booster += random.choice([3.0, 5.0, 10.0])
 
-        fiab = random.randint(70, 95)
-        predictions.append((f"T+{i}", f"{pred}x", f"Fiabilité: {fiab}%"))
+    pred = round(a + mod * 0.05 + (seed % 5) * 0.03 + rand + booster, 2)
+    pred = max(1.00, min(pred, 100.0))
+    fiab = random.randint(75, 96)
 
-        mods.append(mod)
-        seeds.append(seed)
-        avg.append(a)
-        std.append(s)
+    predictions.append((f"T+{i}", f"{pred}x", f"Fiabilité: {fiab}%"))
+    mods.append(mod)
+    seeds.append(seed)
+    avg.append(a)
+    std.append(s)
 
-    return predictions
+return predictions
 
-# PEJY LOGIN
-def login_page():
-    st.title("Prediction Expert by Mickael")
-    username = st.text_input("Nom d'utilisateur")
-    password = st.text_input("Mot de passe", type="password")
+--- LOGIN PAGE ---
 
-    if st.button("Se connecter"):
-        if username == "Topexacte" and password == "5312288612bet261":
-            st.session_state["logged_in"] = True
-        else:
-            st.error("Nom d'utilisateur ou mot de passe incorrect.")
+def login_page(): st.title("Prediction Expert by Mickael") username = st.text_input("Nom d'utilisateur") password = st.text_input("Mot de passe", type="password") if st.button("Se connecter"): if username == "Topexacte" and password == "5312288612bet261": st.session_state["logged_in"] = True else: st.error("Nom d'utilisateur ou mot de passe incorrect.")
 
-# PEJY PREDICTION
-def prediction_page():
-    st.title("Mode Expert — Prédiction Aviator")
-    st.markdown("**Entrez les derniers multiplicateurs** (ex: 2.41 1.53 3.00 1.00 ...)")
+--- MAIN APP ---
 
-    raw_input = st.text_area("Multiplicateurs récents", "")
-    numbers = list(map(float, re.findall(r"\d+\.\d+", raw_input)))
+def main_app(): st.title("Expert Prediction Aviator") user_input = st.text_area("Entrer les 30 derniers multiplicateurs (ex: 1.00x 2.50x 3.20x ...)") if user_input: cleaned = re.findall(r"\d+.\d+", user_input) if len(cleaned) < 10: st.warning("Il faut au moins 10 valeurs pour une prédiction fiable.") else: predictions = prediction_expert(cleaned[-30:]) for t, p, f in predictions: st.write(f"{t} → {p} ({f})")
 
-    if st.button("Prédire les 20 prochains tours"):
-        if len(numbers) < 5:
-            st.warning("Entrer au moins 5 multiplicateurs.")
-        else:
-            results = prediction_expert(numbers)
-            for t, v, f in results:
-                st.write(f"{t} —> {v} ({f})")
+--- RUN APP ---
 
-# MAIN APP
-def main():
-    if "logged_in" not in st.session_state:
-        st.session_state["logged_in"] = False
+if "logged_in" not in st.session_state: st.session_state["logged_in"] = False
 
-    if st.session_state["logged_in"]:
-        prediction_page()
-    else:
-        login_page()
+if not st.session_state["logged_in"]: login_page() else: main_app()
 
-if __name__ == "__main__":
-    main()
