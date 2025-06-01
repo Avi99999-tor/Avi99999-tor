@@ -52,7 +52,9 @@ def prediction_expert(multiplicateurs, base_tour):
             pred = round(6.5 + random.uniform(0.5, 1.5), 2)
 
         fiab = fiabilite(pred)
-        label = "Assuré" if fiab >= 80 else "Crash probable" if pred <= 1.20 résultats.append((base_tour + i, pred, fiab, label))
+        label = "Assuré" if fiab >= 80 else ("Crash probable" if pred <= 1.20 else "")
+
+        résultats.append((base_tour + i, pred, fiab, label))
     
     return résultats
 
