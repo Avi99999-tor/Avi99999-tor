@@ -1,101 +1,82 @@
 import streamlit as st
 import numpy as np
+import pandas as pd
 from sklearn.linear_model import LinearRegression
 import random
 
-# --- Prédiction IA simple ---
-def ai_prediction(historique):
-    y = np.array(historique[-10:]).reshape(-1, 1)
-    X = np.arange(len(y)).reshape(-1, 1)
-    model = LinearRegression().fit(X, y)
-    pred = model.predict(np.arange(len(y), len(y) + 20).reshape(-1, 1))
-    return [round(float(p), 2) for p in pred]
+# === Interface ===
+st.set_page_config(page_title="Prédiction Aviator - Mickael TOP EXACTE")
+st.title("🇲🇬 Prediction By Mickael TOP EXACTE 🇲🇬")
 
-# --- Expert Prediction logique simple ---
-def expert_predictions(historique):
-    predictions = []
-    for i in range(1, 21):
-        if len(historique) >= i:
-            val = float(historique[-i])
-            if val > 10:
-                predictions.append(2 + i * 0.1)
-            elif val > 2:
-                predictions.append(1.8 + i * 0.05)
-            else:
-                predictions.append(1.00 + i * 0.03)
-        else:
-            predictions.append(1.00 + i * 0.02)
-    return [round(p, 2) for p in predictions]
+st.markdown("""
+<style>
+.big-font {
+    font-size:25px !important;
+    font-weight: bold;
+}
+</style>
+""", unsafe_allow_html=True)
 
-# --- Couleur logique ---
-def get_couleur(val):
-    if val < 2:
-        return "🔘"
-    elif val < 10:
-        return "💜"
-    else:
-        return "🔴"
+st.markdown('<p class="big-font">T+1 à T+20 Prédiction</p>', unsafe_allow_html=True)
 
-# --- Fusion IA + Expert ---
-def prediction_combinee(historique, base_tour):
-    ia_preds = ai_prediction(historique)
-    exp_preds = expert_predictions(historique)
+# === Inputs ===
+st.sidebar.subheader("Données Historiques")
+raw_data = st.sidebar.text_area("Multiplicateurs (T1 → Tn):",
+                                 placeholder="Ex: 1.03, 2.10, 5.55, 1.98, 3.44")
+dernier_tour = st.sidebar.text_input("Dernier numéro de tour (ex: 125):", "125")
 
-    résultats = []
-    for i in range(20):
-        ai = ia_preds[i]
-        exp = exp_preds[i]
-        final = round((ai + exp) / 2, 2)
-        couleur = get_couleur(final)
-        assurance = str(round(random.uniform(70, 95), 2)) + "%"
-        résultats.append({
-            "Tour": f"T{base_tour + i + 1}",
-            "Valeur": f"{final}x",
-            "Couleur": couleur,
-            "Assurance": assurance
-        })
-    return résultats
+# Effacer bouton
+def clear_inputs():
+    st.experimental_rerun()
 
-# --- Traitement input de format Txxx → xx.xx x ---
-def extraire_valeurs(historique_text):
-    lignes = historique_text.strip().split("\n")
-    valeurs = []
-    for ligne in lignes:
-        if "→" in ligne:
-            try:
-                val = ligne.split("→")[1].replace("x", "").strip()
-                valeurs.append(float(val))
-            except:
-                continue
-    return valeurs
+if st.sidebar.button("Effacer Données"):
+    clear_inputs()
 
-# --- Interface Streamlit ---
-st.set_page_config(page_title="Prediction By Mickael TOP EXACTE", layout="centered" 
-st.title("🇲🇬 Prediction By Mickael TOP EXACTE 🇲🇬")    
+# === Conversions ===
+def parse_data(raw):
+    try:
+        values = [float(x.strip()) for x in raw.split(",") if x.strip() != ""]
+        return values
+    except:
+        return []
 
-with st.expander("🧾 Historique formaté"):
-    st.markdown("**Format:** T101 → 1.02x")
-    st.markdown("Exemple :")
-    st.code("T101 → 1.02x\nT102 → 2.45x\nT103 → 3.96x\nT104 → 1.00x")
+historique = parse_data(raw_data)
 
-# Champ de texte pour historique
-historique_text = st.text_area("Entrer l'historique au format Txxx → xx.xx x", height=200)
+# === AI Simplifiée ===
+def ai_prediction(histo, tours=20):
+    X = np.array(range(len(histo))).reshape(-1, 1)
+    y = np.array(histo)
+    model = LinearRegression()
+    model.fit(X, y)
+    X_pred = np.array(range(len(histo), len(histo)+tours)).reshape(-1, 1)
+    y_pred = model.predict(X_pred)
+    return np.round(y_pred, 2)
 
-col1, col2 = st.columns(2)
-with col1:
-    dernier_tour = st.number_input("🔢 Dernier numéro de tour", min_value=0, value=120, step=1)
-with col2:
-    if st.button("🧹 Effacer l'historique"):
-        historique_text = ""
+# === Stratégie Expert ===
+def expert_predictions(histo, tours=20):
+    results = []
+    base = histo[-1] if histo else 2.0
+    for i in range(tours):
+        rep = round(base + np.sin(i)*random.uniform(0.3, 1.2), 2)
+        results.append(rep)
+    return results
 
-# Bouton Prédire
-if st.button("🔮 Prédire"):
-    historique = extraire_valeurs(historique_text)
-    if len(historique) < 5:
-        st.warning("Il faut au moins 5 valeurs pour prédire.")
-    else:
-        resultats = prediction_combinee(historique, int(dernier_tour))
-        st.subheader("📊 Résultat T+1 à T+20")
+# === Combinaison & Affichage ===
+def prediction_combinee(histo, n_tour):
+    ai_preds = ai_prediction(histo)
+    exp_preds = expert_predictions(histo)
+    results = []
+    for i, (a, e) in enumerate(zip(ai_preds, exp_preds)):
+        comb = round((a + e)/2, 2)
+        taux = min(100, round(90 + abs(a - e)*2, 1))
+        results.append((n_tour + i + 1, comb, taux))
+    return results
 
-        for res in resultats:
-            st.markdown(f"**{res['Tour']} → {res['Valeur']} {res['Couleur']}** — {res['Assurance']}")
+# === Résultats ===
+if historique and dernier_tour.isdigit():
+    résultats = prediction_combinee(historique, int(dernier_tour))
+    for tour, val, taux in résultats:
+        couleur = "🔘" if val < 2 else "💜" if val < 10 else "🔴"
+        st.write(f"T{tour} → {val}x {couleur} — Assurance: {taux}%")
+else:
+    st.info("Veuillez entrer des données valides pour afficher la prédiction.")
