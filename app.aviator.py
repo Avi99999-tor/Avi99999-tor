@@ -1,15 +1,17 @@
 import streamlit as st
 import numpy as np
+import pandas as pd
 import random
-from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
 
 st.set_page_config(page_title="Prediction By Mickael TOP EXACTE")
-st.title("♈🇲🇬 Prediction By Mickael - TOP EXACTE")
-st.subheader("Version combinée : Expert logique + IA (Linear Regression)")
+st.title("🎯 Prediction By Mickael - TOP EXACTE")
+st.subheader("Version améliorée IA + Expert logique")
 
-# -------------------
+# --------------------
 # Fonctions utilitaires
-# -------------------
+# --------------------
 
 def nettoyer_donnees(texte):
     vals = texte.replace(',', '.').lower().replace('x', '').split()
@@ -30,10 +32,6 @@ def fiabilite(pred):
     else:
         return random.randint(68, 78)
 
-def analyse_mod_seed(liste):
-    chiffres_mod = [int(str(x).split(".")[-1]) % 10 for x in liste]
-    return sum(chiffres_mod) / len(chiffres_mod)
-
 def color_tag(val):
     if val < 2:
         return "🔵"
@@ -42,41 +40,98 @@ def color_tag(val):
     else:
         return "🔴"
 
-# -------------------
-# IA – Linear Regression
-# -------------------
+# --------------------
+# Création des features pour ML
+# --------------------
 
-def entrer_model_ml(multiplicateurs):
-    # Préparer X, y pour sliding window de taille 3
-    window = 3
-    X, y = [], []
-    for i in range(len(multiplicateurs) - window):
-        X.append(multiplicateurs[i:i+window])
-        y.append(multiplicateurs[i+window])
-    if len(X) < 5:
+def construire_features(multiplicateurs, window=5):
+    """
+    Returns a DataFrame X, plus array y.
+    Features extraites pour chaque position i >= window jusqu'à len-1 :
+      - Valeurs des multipliers précédents (last 3)
+      - diff1 = x[i-1] - x[i-2], diff2 = x[i-2] - x[i-3]
+      - mean5 = moyenne de x[i-window:i]
+      - min5, max5
+      - virgule_bits (digit_sum %10) des 3 derniers
+      - flags pour cas 1 et cas 2 dans la fenêtre
+    """
+    data = []
+    targets = []
+    for i in range(window, len(multiplicateurs)):
+        prev = multiplicateurs[i-3:i]            # x[n-3], x[n-2], x[n-1]
+        diff1 = multiplicateurs[i-1] - multiplicateurs[i-2]
+        diff2 = multiplicateurs[i-2] - multiplicateurs[i-3]
+        window_vals = multiplicateurs[i-window:i]
+        mean5 = np.mean(window_vals)
+        min5 = np.min(window_vals)
+        max5 = np.max(window_vals)
+
+        # chiffres après virgule
+        virgules = [int(str(v).split('.')[-1]) % 10 for v in prev]
+
+        # Cas 1 flag: croissant in-3 → drop (si x[n-3]<x[n-2]<x[n-1] et x[n] < x[n-1])
+        flag_c1 = 1 if (prev[0] < prev[1] < prev[2] and multiplicateurs[i] < prev[2]) else 0
+        # Cas 2 flag: decroissant in-3 → boost (si >)
+        flag_c2 = 1 if (prev[0] > prev[1] > prev[2] and multiplicateurs[i] > prev[2]) else 0
+
+        features = prev + [diff1, diff2, mean5, min5, max5] + virgules + [flag_c1, flag_c2]
+        data.append(features)
+        targets.append(multiplicateurs[i])
+    cols = (
+        ["x_n3", "x_n2", "x_n1", 
+         "diff1", "diff2", "mean5", "min5", "max5"] +
+        ["virgule_n3", "virgule_n2", "virgule_n1"] +
+        ["flag_c1", "flag_c2"]
+    )
+    return pd.DataFrame(data, columns=cols), np.array(targets)
+
+# --------------------
+# Entraînement et prédiction IA améliorée
+# --------------------
+
+def entrainer_ia_ml(historique):
+    X, y = construire_features(historique)
+    if len(X) < 10:   # Pas assez de data
         return None
-    model = LinearRegression().fit(np.array(X), np.array(y))
+    # Séparation train/test pour garder un modèle robuste
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
     return model
 
-def ia_ml_predictions(model, historique):
-    # Prédire 20 tours en se basant sur les 3 derniers
+def ia_ml_predictions_improve(model, historique, nb_preds=20):
     preds = []
-    derniers = historique[-3:]
-    for _ in range(20):
-        p = model.predict(np.array([derniers]))[0]
-        p = round(max(1.01, min(p, 15)), 2)  # Clamp entre 1.01 et 15
-        preds.append(p)
-        derniers = [derniers[1], derniers[2], p]
+    hist = historique.copy()
+    for _ in range(nb_preds):
+        # Créer feature pour la prochaine prédiction
+        if len(hist) < 5:
+            preds.append(hist[-1])
+            continue
+        prev = hist[-3:]
+        diff1 = hist[-1] - hist[-2]
+        diff2 = hist[-2] - hist[-3]
+        window_vals = hist[-5:]
+        mean5 = np.mean(window_vals)
+        min5 = np.min(window_vals)
+        max5 = np.max(window_vals)
+        virg = [int(str(v).split('.')[-1]) % 10 for v in prev]
+        # flags (on considère pas target à venir ici, on met 0)
+        flag_c1 = 0
+        flag_c2 = 0
+        feat = prev + [diff1, diff2, mean5, min5, max5] + virg + [flag_c1, flag_c2]
+        next_pred = round(max(1.01, min(float(model.predict([feat])[0]), 15)), 2)
+        preds.append(next_pred)
+        hist.append(next_pred)
     return preds
 
-# -------------------
+# --------------------
 # Expert logique
-# -------------------
+# --------------------
 
-def expert_predictions(multiplicateurs):
-    résultats = []
-    rolling_mean = np.mean(multiplicateurs)
-    mod_score = analyse_mod_seed(multiplicateurs)
+def expert_predictions(historique):
+    exp_preds = []
+    rolling_mean = np.mean(historique)
+    mod_score = analyse_mod_seed(historique)
     for i in range(1, 21):
         seed = int((mod_score + rolling_mean + i * 0.7) * 1000) % 97
         pred_exp = round(abs((np.sin(seed) + np.cos(i * mod_score)) * 3 + random.uniform(0.2, 1.5)), 2)
@@ -84,44 +139,44 @@ def expert_predictions(multiplicateurs):
             pred_exp = round(random.uniform(1.01, 1.19), 2)
         elif pred_exp > 15:
             pred_exp = round(random.uniform(8.5, 10.5), 2)
-        résultats.append(pred_exp)
-    return résultats
+        exp_preds.append(pred_exp)
+    return exp_preds
 
-# -------------------
-# Prédiction combinée
-# -------------------
+# --------------------
+# Prédiction combinée (Expert + IA améliorée)
+# --------------------
 
 def prediction_combinee(historique, base_tour):
     résultats = []
-    expert_preds = expert_predictions(historique)
-    model_ml = entrer_model_ml(historique)
-    ia_preds = ia_ml_predictions(model_ml, historique) if model_ml else [None]*20
+    exp_preds = expert_predictions(historique)
+    model_ml = entrainer_ia_ml(historique)
+    ia_preds = ia_ml_predictions_improve(model_ml, historique) if model_ml else [None]*20
 
     for i in range(20):
-        tour = base_tour + i + 1
-        exp = expert_preds[i]
-        ia = ia_preds[i] if ia_preds else exp
-        final_pred = round((ia + exp) / 2, 2)
-        final_pred = max(1.01, final_pred)
+        t = base_tour + i + 1
+        ie = exp_preds[i]
+        im = ia_preds[i] if ia_preds else ie
+        final = round((ie + im) / 2, 2)
+        final = max(1.01, final)
 
-        fiab = fiabilite(final_pred)
-        tag = color_tag(final_pred)
-        label = "Assuré ✅" if fiab >= 80 else "Crash probable ⚠️" if final_pred <= 1.20 else ""
-        résultats.append((tour, ia, exp, final_pred, fiab, tag, label))
+        fiab = fiabilite(final)
+        tag = color_tag(final)
+        label = "Assuré ✅" if fiab >= 80 else "Crash probable ⚠️" if final <= 1.20 else ""
+        résultats.append((t, im, ie, final, fiab, tag, label))
 
     return résultats
 
-# -------------------
+# --------------------
 # Interface Streamlit
-# -------------------
+# --------------------
 
 multiplicateurs_input = st.text_area(
     "**Entrez les multiplicateurs (du plus récent au plus ancien)**",
-    placeholder="Ex : 2.14x 1.26x 5.87x ..."
+    placeholder="Ex: 2.14x 1.26x 5.87x ..."
 )
 
 dernier_tour = st.number_input(
-    "**Numéro du dernier tour (ex : 74 si 2.14x est le plus récent)**",
+    "**Numéro du dernier tour (ex: 74 si 2.14x est le plus récent)**",
     min_value=1, value=50
 )
 
@@ -141,9 +196,9 @@ if calculer and multiplicateurs_input:
     else:
         résultats = prediction_combinee(historique, int(dernier_tour))
         st.markdown("### 🧮 **Résultats T+1 à T+20 :**")
-        for tour, ia, exp, final_pred, fiab, tag, label in résultats:
-            line = (f"**T{tour}** → IA: **{ia}x** | Expert: **{exp}x** "
-                    f"| Final: {tag} **{final_pred}x** — Fiabilité : **{fiab}%**")
+        for t, ia_val, exp_val, final, fiab, tag, label in résultats:
+            line = (f"**T{t}** → IA: **{ia_val}x** | Expert: **{exp_val}x** "
+                    f"| Final: {tag} **{final}x** — Fiabilité : **{fiab}%**")
             if label:
                 line += f" **({label})**"
             st.markdown("- " + line)
