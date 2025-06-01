@@ -56,30 +56,29 @@ def prediction_combinee(historique, base_tour):
         })
     return résultats
 
-# --- Traitement input de format Txxx → xx.xx x ---
+# --- Traitement input multiplicateurs (format simplifié) ---
 def extraire_valeurs(historique_text):
-    lignes = historique_text.strip().split("\n")
     valeurs = []
-    for ligne in lignes:
-        if "→" in ligne:
-            try:
-                val = ligne.split("→")[1].replace("x", "").strip()
-                valeurs.append(float(val))
-            except:
-                continue
+    for val in historique_text.strip().split():
+        try:
+            valeurs.append(float(val.replace("x", "").strip()))
+        except:
+            continue
     return valeurs
 
 # --- Interface Streamlit ---
-st.set_page_config(page_title="Prediction By Mickael TOP EXACTE", layout="centered")
-st.title("🎯 Prediction By Mickael TOP EXACTE")
+st.set_page_config(page_title="🇲🇬 Prediction By Mickael TOP EXACTE", layout="centered")
+st.title("🇲🇬 🎯 Prediction By Mickael TOP EXACTE")
 
-with st.expander("🧾 Historique formaté"):
-    st.markdown("**Format:** T101 → 1.02x")
-    st.markdown("Exemple :")
-    st.code("T101 → 1.02x\nT102 → 2.45x\nT103 → 3.96x\nT104 → 1.00x")
+st.markdown("### 📌 Fomba fampidirana multiplicateurs:")
+st.markdown("**Ampidiro tsotra amin'ny endrika:** `1.19x 8.28x 26.84x ...` (misaraka amin'ny espace)")
 
 # Champ de texte pour historique
-historique_text = st.text_area("Entrer l'historique au format Txxx → xx.xx x", height=200)
+historique_text = st.text_area(
+    "💾 Ampidiro ny multiplicateurs (misaraka amin'ny espace)",
+    placeholder="1.19x 8.28x 26.84x 1.57x 1.45x 5.31x ...",
+    height=150
+)
 
 col1, col2 = st.columns(2)
 with col1:
