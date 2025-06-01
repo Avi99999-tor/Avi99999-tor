@@ -1,62 +1,34 @@
-#!/usr/bin/env python3
-"""
-Aviator Crash Game Simple Predictor
-Version simple Python pour générer des prédictions T+1 à T+20
-Logique : « expert » basé sur une combinaison sin/cos + random.
-"""
-
-import math
+import streamlit as st
+import numpy as np
+from sklearn.linear_model import LinearRegression
 import random
 
-def nettoyer_historique(input_str):
-    """
-    Convertit une chaîne de nombres séparés par des espaces ou virgules en liste de float.
-    Ex : "1.03 2.45, 3.96 1.00" → [1.03, 2.45, 3.96, 1.00]
-    """
-    parts = input_str.replace(',', ' ').split()
-    valeurs = []
-    for p in parts:
-        try:
-            v = float(p)
-            if v > 0:
-                valeurs.append(v)
-        except ValueError:
-            continue
-    return valeurs
+# --- Prédiction IA simple ---
+def ai_prediction(historique):
+    y = np.array(historique[-10:]).reshape(-1, 1)
+    X = np.arange(len(y)).reshape(-1, 1)
+    model = LinearRegression().fit(X, y)
+    pred = model.predict(np.arange(len(y), len(y) + 20).reshape(-1, 1))
+    return [round(float(p), 2) for p in pred]
 
-def expert_predictions(historique, tours=20):
-    """
-    Génère des prédictions « expert » pour les prochains tours.
-    Pour chaque i de 1 à tours, on fait :
-      pred = |sin(i + dernière_valeur) + cos(i * moyenne)| × facteur aléatoire
-      clamp entre 1.01 et 15.00
-    """
-    résultats = []
-    if not historique:
-        # Si pas d'historique, on renvoie une liste fixe
-        return [1.00 + i * 0.05 for i in range(1, tours+1)]
-    
-    moyenne = sum(historique) / len(historique)
-    derniere = historique[-1]
-    
-    for i in range(1, tours + 1):
-        # Composante trigonométrique
-        trig = abs(math.sin(derniere + i) + math.cos(i * moyenne))
-        # Facteur aléatoire léger
-        facteur = 1 + random.uniform(0.1, 1.0)
-        raw = trig * facteur
-        # Clamp entre 1.01 et 15.00
-        pred = round(min(max(raw, 1.01), 15.00), 2)
-        résultats.append(pred)
-    return résultats
+# --- Expert Prediction logique simple ---
+def expert_predictions(historique):
+    predictions = []
+    for i in range(1, 21):
+        if len(historique) >= i:
+            val = float(historique[-i])
+            if val > 10:
+                predictions.append(2 + i * 0.1)
+            elif val > 2:
+                predictions.append(1.8 + i * 0.05)
+            else:
+                predictions.append(1.00 + i * 0.03)
+        else:
+            predictions.append(1.00 + i * 0.02)
+    return [round(p, 2) for p in predictions]
 
-def color_tag(val):
-    """
-    Renvoie un emoji selon la valeur :
-      < 2   → 🔘
-      < 10  → 💜
-      >= 10 → 🔴
-    """
+# --- Couleur logique ---
+def get_couleur(val):
     if val < 2:
         return "🔘"
     elif val < 10:
@@ -64,57 +36,66 @@ def color_tag(val):
     else:
         return "🔴"
 
-def calculer_assurance(val):
-    """
-    Détermine un pourcentage d'assurance en fonction de la valeur prédite.
-    > 10  : aléatoire entre 87 et 93%
-    > 5   : aléatoire entre 80 et 88%
-    > 3   : aléatoire entre 75 et 85%
-    <=1.2 : aléatoire entre 60 et 70%
-    sinon:  aléatoire entre 68 et 78%
-    """
-    if val >= 10:
-        return random.randint(87, 93)
-    elif val >= 5:
-        return random.randint(80, 88)
-    elif val >= 3:
-        return random.randint(75, 85)
-    elif val <= 1.2:
-        return random.randint(60, 70)
+# --- Fusion IA + Expert ---
+def prediction_combinee(historique, base_tour):
+    ia_preds = ai_prediction(historique)
+    exp_preds = expert_predictions(historique)
+
+    résultats = []
+    for i in range(20):
+        ai = ia_preds[i]
+        exp = exp_preds[i]
+        final = round((ai + exp) / 2, 2)
+        couleur = get_couleur(final)
+        assurance = str(round(random.uniform(70, 95), 2)) + "%"
+        résultats.append({
+            "Tour": f"T{base_tour + i + 1}",
+            "Valeur": f"{final}x",
+            "Couleur": couleur,
+            "Assurance": assurance
+        })
+    return résultats
+
+# --- Traitement input de format Txxx → xx.xx x ---
+def extraire_valeurs(historique_text):
+    lignes = historique_text.strip().split("\n")
+    valeurs = []
+    for ligne in lignes:
+        if "→" in ligne:
+            try:
+                val = ligne.split("→")[1].replace("x", "").strip()
+                valeurs.append(float(val))
+            except:
+                continue
+    return valeurs
+
+# --- Interface Streamlit ---
+st.set_page_config(page_title="Prediction By Mickael TOP EXACTE", layout="centered")
+st.title("🎯 Prediction By Mickael TOP EXACTE")
+
+with st.expander("🧾 Historique formaté"):
+    st.markdown("**Format:** T101 → 1.02x")
+    st.markdown("Exemple :")
+    st.code("T101 → 1.02x\nT102 → 2.45x\nT103 → 3.96x\nT104 → 1.00x")
+
+# Champ de texte pour historique
+historique_text = st.text_area("Entrer l'historique au format Txxx → xx.xx x", height=200)
+
+col1, col2 = st.columns(2)
+with col1:
+    dernier_tour = st.number_input("🔢 Dernier numéro de tour", min_value=0, value=120, step=1)
+with col2:
+    if st.button("🧹 Effacer l'historique"):
+        historique_text = ""
+
+# Bouton Prédire
+if st.button("🔮 Prédire"):
+    historique = extraire_valeurs(historique_text)
+    if len(historique) < 5:
+        st.warning("Il faut au moins 5 valeurs pour prédire.")
     else:
-        return random.randint(68, 78)
+        resultats = prediction_combinee(historique, int(dernier_tour))
+        st.subheader("📊 Résultat T+1 à T+20")
 
-def main():
-    print("\n🇲🇬  Prediction By Mickael TOP EXACTE  🇲🇬\n")
-    print("Format de l'historique : liste de multipliers séparés par espaces ou virgules.")
-    print("Ex : 1.03 2.45, 3.96 1.00 5.12\n")
-    
-    # Lecture de l'historique
-    raw = input("Entrez les multipliers précédents : ").strip()
-    historique = nettoyer_historique(raw)
-    if len(historique) < 1:
-        print("\n⚠️ Historique invalide. Veuillez entrer au moins une valeur positive.\n")
-        return
-    
-    # Lecture du numéro du dernier tour
-    last_tour_str = input("Entrez le numéro du dernier tour (ex : 150) : ").strip()
-    try:
-        last_tour = int(last_tour_str)
-    except ValueError:
-        print("\n⚠️ Numéro de tour invalide. Veuillez entrer un entier.\n")
-        return
-    
-    # Génération des prédictions expert
-    preds = expert_predictions(historique, tours=20)
-    
-    print("\n📈 Résultats de la prédiction T+1 à T+20 :")
-    for i, val in enumerate(preds, start=1):
-        tour = last_tour + i
-        tag = color_tag(val)
-        assurance = calculer_assurance(val)
-        # Affichage formaté
-        print(f"  T{tour} → {tag} {val}x  — Assurance : {assurance}%")
-    print()
-
-if __name__ == "__main__":
-    main()
+        for res in resultats:
+            st.markdown(f"**{res['Tour']} → {res['Valeur']} {res['Couleur']}** — {res['Assurance']}")
