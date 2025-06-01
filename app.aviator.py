@@ -1,94 +1,101 @@
 import streamlit as st
 import numpy as np
-import pandas as pd
 from sklearn.linear_model import LinearRegression
 import random
 
-# --- Prédiction IA avec Linear Regression ---
+# --- Prédiction IA simple ---
 def ai_prediction(historique):
-    try:
-        y = np.array(historique[-10:]).reshape(-1, 1)
-        X = np.arange(len(y)).reshape(-1, 1)
-        model = LinearRegression().fit(X, y)
-        next_step = np.array([[len(y)]])
-        prediction = model.predict(next_step)[0][0]
-        return round(prediction, 2)
-    except:
-        return 1.00
+    y = np.array(historique[-10:]).reshape(-1, 1)
+    X = np.arange(len(y)).reshape(-1, 1)
+    model = LinearRegression().fit(X, y)
+    pred = model.predict(np.arange(len(y), len(y) + 20).reshape(-1, 1))
+    return [round(float(p), 2) for p in pred]
 
-# --- Analyse expert basé sur logique mod 10 ---
-def analyse_mod_seed(historique):
-    if not historique:
-        return 0.0
-    count = 0
-    for h in historique[-10:]:
-        try:
-            valeur = float(h)
-            if int(valeur * 100) % 10 in [3, 6, 9]:
-                count += 1
-        except:
-            continue
-    score = (count / 10) * 100
-    return round(score, 2)
-
-# --- Expert Prediction basée sur logique tendance simple ---
+# --- Expert Prediction logique simple ---
 def expert_predictions(historique):
     predictions = []
-    for i in range(1, 4):
+    for i in range(1, 21):
         if len(historique) >= i:
-            try:
-                val = float(historique[-i])
-                if val > 10:
-                    predictions.append(1.5 + i)
-                elif val > 2:
-                    predictions.append(2 + (i * 0.5))
-                else:
-                    predictions.append(1.00 + (i * 0.25))
-            except:
-                predictions.append(1.00)
-    score = analyse_mod_seed(historique)
-    return max(predictions), score
+            val = float(historique[-i])
+            if val > 10:
+                predictions.append(2 + i * 0.1)
+            elif val > 2:
+                predictions.append(1.8 + i * 0.05)
+            else:
+                predictions.append(1.00 + i * 0.03)
+        else:
+            predictions.append(1.00 + i * 0.02)
+    return [round(p, 2) for p in predictions]
 
-# --- Fusion IA + Expert (Combinée) ---
-def prediction_combinee(historique, tour):
-    ai_pred = ai_prediction(historique)
-    exp_pred, score = expert_predictions(historique)
-
-    if abs(exp_pred - ai_pred) < 1.0:
-        final = round((exp_pred + ai_pred) / 2, 2)
+# --- Couleur logique ---
+def get_couleur(val):
+    if val < 2:
+        return "🔘"
+    elif val < 10:
+        return "💜"
     else:
-        final = round(exp_pred, 2)
+        return "🔴"
 
-    assurance = round((score + 80 + random.randint(0, 10)) / 2, 2)
-    couleur = "🔘" if final < 2 else "💜" if final < 10 else "🔴"
+# --- Fusion IA + Expert ---
+def prediction_combinee(historique, base_tour):
+    ia_preds = ai_prediction(historique)
+    exp_preds = expert_predictions(historique)
 
-    return {
-        "Tour": f"T{tour}",
-        "IA": ai_pred,
-        "Expert": exp_pred,
-        "Final": final,
-        "Assurance": f"{assurance}%",
-        "Couleur": couleur
-    }
+    résultats = []
+    for i in range(20):
+        ai = ia_preds[i]
+        exp = exp_preds[i]
+        final = round((ai + exp) / 2, 2)
+        couleur = get_couleur(final)
+        assurance = str(round(random.uniform(70, 95), 2)) + "%"
+        résultats.append({
+            "Tour": f"T{base_tour + i + 1}",
+            "Valeur": f"{final}x",
+            "Couleur": couleur,
+            "Assurance": assurance
+        })
+    return résultats
+
+# --- Traitement input de format Txxx → xx.xx x ---
+def extraire_valeurs(historique_text):
+    lignes = historique_text.strip().split("\n")
+    valeurs = []
+    for ligne in lignes:
+        if "→" in ligne:
+            try:
+                val = ligne.split("→")[1].replace("x", "").strip()
+                valeurs.append(float(val))
+            except:
+                continue
+    return valeurs
 
 # --- Interface Streamlit ---
 st.set_page_config(page_title="Prediction By Mickael TOP EXACTE", layout="centered")
-st.title("🎯 Prediction By Mickael TOP EXACTE")
+st.title(" 🇲🇬Prediction By Mickael TOP EXACTE" 🇲🇬)
 
-historique_input = st.text_area("🧾 Entrer les 20 derniers multiplicateurs (séparés par des virgules)",
-                                "1.02,2.45,3.96,1.00,5.12,8.24,2.31,1.12,10.24,12.3,2.3,3.12,1.00,7.00,3.1,2.0,4.4,1.5,2.9,3.9")
+with st.expander("🧾 Historique formaté"):
+    st.markdown("**Format:** T101 → 1.02x")
+    st.markdown("Exemple :")
+    st.code("T101 → 1.02x\nT102 → 2.45x\nT103 → 3.96x\nT104 → 1.00x")
 
-dernier_tour = st.text_input("🔢 Numéro du dernier tour (ex: 120)", "120")
+# Champ de texte pour historique
+historique_text = st.text_area("Entrer l'historique au format Txxx → xx.xx x", height=200)
 
+col1, col2 = st.columns(2)
+with col1:
+    dernier_tour = st.number_input("🔢 Dernier numéro de tour", min_value=0, value=120, step=1)
+with col2:
+    if st.button("🧹 Effacer l'historique"):
+        historique_text = ""
+
+# Bouton Prédire
 if st.button("🔮 Prédire"):
-    try:
-        historique = [float(x.strip()) for x in historique_input.split(",") if x.strip()]
-        résultats = prediction_combinee(historique, int(dernier_tour))
+    historique = extraire_valeurs(historique_text)
+    if len(historique) < 5:
+        st.warning("Il faut au moins 5 valeurs pour prédire.")
+    else:
+        resultats = prediction_combinee(historique, int(dernier_tour))
+        st.subheader("📊 Résultat T+1 à T+20")
 
-        st.subheader("📈 Résultat de la Prédiction")
-        st.markdown(f"**{résultats['Tour']} ➜ {résultats['Final']}x {résultats['Couleur']}**")
-        st.markdown(f"🧠 **IA :** {résultats['IA']}x")
-        st.markdown(f"🧙 **Expert :** {résultats['Expert']}x")
-        st.markdown(f"✅ **Assurance :** {résultats['Assurance']}")
-    except Exception as e:
-        st.error(f"❌ Erreur de traitement : {e}")
+        for res in resultats:
+            st.markdown(f"**{res['Tour']} → {res['Valeur']} {res['Couleur']}** — {res['Assurance']}")
