@@ -14,10 +14,23 @@ multiplicateurs_input = st.text_area("💾 Ampidiro ny multiplicateurs (misaraka
 
 dernier_tour = st.number_input("🔢 Numéro du dernier tour", min_value=1, value=50)
 
+# --- Bouton Calculer ---
+calculer = st.button("🔄 Calculer les prédictions")
+
 # --- Fanadiovana angona ---
 def extraire_valeurs(texte):
     valeurs = texte.replace(',', '.').lower().replace('x', '').split()
-    return [float(v) for v in valeurs if float(v) > 0]
+    valeurs_propres = []
+    
+    for v in valeurs:
+        try:
+            val = float(v)
+            if val > 0:
+                valeurs_propres.append(val)
+        except ValueError:
+            continue  
+
+    return valeurs_propres
 
 # --- Fiabilité calculation ---
 def fiabilite(val):
@@ -59,7 +72,7 @@ def prediction_expert(multiplicateurs, base_tour):
     return résultats
 
 # --- Fanodinana ---
-if multiplicateurs_input:
+if calculer:  # Bouton tsindriana mba hanaovana prédiction
     historique = extraire_valeurs(multiplicateurs_input)
 
     if len(historique) < 10:
