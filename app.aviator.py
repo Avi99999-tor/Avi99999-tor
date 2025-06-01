@@ -70,8 +70,8 @@ def extraire_valeurs(historique_text):
     return valeurs
 
 # --- Interface Streamlit ---
-st.set_page_config(page_title="Prediction By Mickael TOP EXACTE", layout="centered")
-st.title(" 🇲🇬Prediction By Mickael TOP EXACTE" 🇲🇬)
+st.set_page_config(page_title="Prediction By Mickael TOP EXACTE", layout="centered" 
+st.title("🇲🇬 Prediction By Mickael TOP EXACTE 🇲🇬")    
 
 with st.expander("🧾 Historique formaté"):
     st.markdown("**Format:** T101 → 1.02x")
