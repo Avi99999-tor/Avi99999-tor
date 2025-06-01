@@ -1,12 +1,13 @@
 import streamlit as st
 import numpy as np
 import random
+from sklearn.linear_model import LinearRegression
 
 # --- Configuration ---
 st.set_page_config(page_title="🇲🇬 Prediction By Mickael", layout="centered")
 st.title("🇲🇬 🎯 Prediction Expert By Mickael")
 
-st.subheader("Version manaraka statistika Aviator")
+st.subheader("Fanatsarana probabilités AI")
 
 # --- Fidirana data (multiplicateurs) ---
 multiplicateurs_input = st.text_area("💾 Ampidiro ny multiplicateurs (misaraka amin'ny espace)", 
@@ -43,31 +44,41 @@ def fiabilite(val):
     else:
         return round(random.uniform(70, 80), 2)
 
-# --- Analiza Mod Seed ---
-def analyse_mod_seed(liste):
-    chiffres_mod = [int(str(x).split(".")[-1]) % 10 for x in liste]
-    return sum(chiffres_mod) / len(chiffres_mod)
+# --- Algorithme AI: Régression avancée ---
+def regression_prediction(multiplicateurs):
+    X = np.arange(len(multiplicateurs)).reshape(-1, 1)
+    y = np.array(multiplicateurs).reshape(-1, 1)
+    
+    model = LinearRegression().fit(X, y)
+    pred = model.predict(np.arange(len(multiplicateurs), len(multiplicateurs) + 20).reshape(-1, 1))
+    
+    return [round(float(p), 2) for p in pred]
 
 # --- Prediction Expert ---
 def prediction_expert(multiplicateurs, base_tour):
     résultats = []
     rolling_mean = np.mean(multiplicateurs)
-    mod_score = analyse_mod_seed(multiplicateurs)
+    regression_preds = regression_prediction(multiplicateurs)
 
-    for i in range(1, 21):  # T+1 à T+20
-        seed = int((mod_score + rolling_mean + i * 3.73) * 1000) % 57
-        pred = round(abs((np.sin(seed) + np.cos(i * mod_score)) * 3.5 + random.uniform(0.3, 1.7)), 2)
+    for i in range(20):  # T+1 à T+20
+        pred_reg = regression_preds[i]
+        seed = int((rolling_mean + i * 3.73) * 1000) % 57
+        pred_expert = round(abs((np.sin(seed) + np.cos(i * rolling_mean)) * 3.5 + random.uniform(0.3, 1.7)), 2)
 
-        # Fanitsiana ho ara-statistikan'ny Aviator
-        if pred < 1.10:
-            pred = round(1.10 + random.uniform(0.1, 0.3), 2)
-        elif pred > 10:
-            pred = round(6.5 + random.uniform(0.5, 1.5), 2)
+        # Filtrage sy fanitsiana
+        if pred_expert < 1.10:
+            pred_expert = round(1.10 + random.uniform(0.1, 0.3), 2)
+        elif pred_expert > 10:
+            pred_expert = round(6.5 + random.uniform(0.5, 1.5), 2)
 
-        fiab = fiabilite(pred)
-        label = "Assuré" if fiab >= 80 else ("Crash probable" if pred <= 1.20 else "")
+        # Fusion AI + Expert
+        final_pred = round((pred_reg * 0.6 + pred_expert * 0.4), 2)
+        final_pred = max(final_pred, 1.10)
 
-        résultats.append((base_tour + i, pred, fiab, label))
+        fiab = fiabilite(final_pred)
+        label = "Assuré" if fiab >= 80 else ("Crash probable" if final_pred <= 1.20 else "")
+
+        résultats.append((base_tour + i, final_pred, fiab, label))
     
     return résultats
 
