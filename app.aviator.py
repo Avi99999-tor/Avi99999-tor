@@ -1,82 +1,120 @@
-import streamlit as st
-import numpy as np
-import pandas as pd
-from sklearn.linear_model import LinearRegression
+#!/usr/bin/env python3
+"""
+Aviator Crash Game Simple Predictor
+Version simple Python pour générer des prédictions T+1 à T+20
+Logique : « expert » basé sur une combinaison sin/cos + random.
+"""
+
+import math
 import random
 
-# === Interface ===
-st.set_page_config(page_title="Prédiction Aviator - Mickael TOP EXACTE")
-st.title("🇲🇬 Prediction By Mickael TOP EXACTE 🇲🇬")
+def nettoyer_historique(input_str):
+    """
+    Convertit une chaîne de nombres séparés par des espaces ou virgules en liste de float.
+    Ex : "1.03 2.45, 3.96 1.00" → [1.03, 2.45, 3.96, 1.00]
+    """
+    parts = input_str.replace(',', ' ').split()
+    valeurs = []
+    for p in parts:
+        try:
+            v = float(p)
+            if v > 0:
+                valeurs.append(v)
+        except ValueError:
+            continue
+    return valeurs
 
-st.markdown("""
-<style>
-.big-font {
-    font-size:25px !important;
-    font-weight: bold;
-}
-</style>
-""", unsafe_allow_html=True)
+def expert_predictions(historique, tours=20):
+    """
+    Génère des prédictions « expert » pour les prochains tours.
+    Pour chaque i de 1 à tours, on fait :
+      pred = |sin(i + dernière_valeur) + cos(i * moyenne)| × facteur aléatoire
+      clamp entre 1.01 et 15.00
+    """
+    résultats = []
+    if not historique:
+        # Si pas d'historique, on renvoie une liste fixe
+        return [1.00 + i * 0.05 for i in range(1, tours+1)]
+    
+    moyenne = sum(historique) / len(historique)
+    derniere = historique[-1]
+    
+    for i in range(1, tours + 1):
+        # Composante trigonométrique
+        trig = abs(math.sin(derniere + i) + math.cos(i * moyenne))
+        # Facteur aléatoire léger
+        facteur = 1 + random.uniform(0.1, 1.0)
+        raw = trig * facteur
+        # Clamp entre 1.01 et 15.00
+        pred = round(min(max(raw, 1.01), 15.00), 2)
+        résultats.append(pred)
+    return résultats
 
-st.markdown('<p class="big-font">T+1 à T+20 Prédiction</p>', unsafe_allow_html=True)
+def color_tag(val):
+    """
+    Renvoie un emoji selon la valeur :
+      < 2   → 🔘
+      < 10  → 💜
+      >= 10 → 🔴
+    """
+    if val < 2:
+        return "🔘"
+    elif val < 10:
+        return "💜"
+    else:
+        return "🔴"
 
-# === Inputs ===
-st.sidebar.subheader("Données Historiques")
-raw_data = st.sidebar.text_area("Multiplicateurs (T1 → Tn):",
-                                 placeholder="Ex: 1.03, 2.10, 5.55, 1.98, 3.44")
-dernier_tour = st.sidebar.text_input("Dernier numéro de tour (ex: 125):", "125")
+def calculer_assurance(val):
+    """
+    Détermine un pourcentage d'assurance en fonction de la valeur prédite.
+    > 10  : aléatoire entre 87 et 93%
+    > 5   : aléatoire entre 80 et 88%
+    > 3   : aléatoire entre 75 et 85%
+    <=1.2 : aléatoire entre 60 et 70%
+    sinon:  aléatoire entre 68 et 78%
+    """
+    if val >= 10:
+        return random.randint(87, 93)
+    elif val >= 5:
+        return random.randint(80, 88)
+    elif val >= 3:
+        return random.randint(75, 85)
+    elif val <= 1.2:
+        return random.randint(60, 70)
+    else:
+        return random.randint(68, 78)
 
-# Effacer bouton
-def clear_inputs():
-    st.experimental_rerun()
-
-if st.sidebar.button("Effacer Données"):
-    clear_inputs()
-
-# === Conversions ===
-def parse_data(raw):
+def main():
+    print("\n🇲🇬  Prediction By Mickael TOP EXACTE  🇲🇬\n")
+    print("Format de l'historique : liste de multipliers séparés par espaces ou virgules.")
+    print("Ex : 1.03 2.45, 3.96 1.00 5.12\n")
+    
+    # Lecture de l'historique
+    raw = input("Entrez les multipliers précédents : ").strip()
+    historique = nettoyer_historique(raw)
+    if len(historique) < 1:
+        print("\n⚠️ Historique invalide. Veuillez entrer au moins une valeur positive.\n")
+        return
+    
+    # Lecture du numéro du dernier tour
+    last_tour_str = input("Entrez le numéro du dernier tour (ex : 150) : ").strip()
     try:
-        values = [float(x.strip()) for x in raw.split(",") if x.strip() != ""]
-        return values
-    except:
-        return []
+        last_tour = int(last_tour_str)
+    except ValueError:
+        print("\n⚠️ Numéro de tour invalide. Veuillez entrer un entier.\n")
+        return
+    
+    # Génération des prédictions expert
+    preds = expert_predictions(historique, tours=20)
+    
+    print("\n📈 Résultats de la prédiction T+1 à T+20 :")
+    for i, val in enumerate(preds, start=1):
+        tour = last_tour + i
+        tag = color_tag(val)
+        assurance = calculer_assurance(val)
+        # Affichage formaté
+        print(f"  T{tour} → {tag} {val}x  — Assurance : {assurance}%")
+    print()
 
-historique = parse_data(raw_data)
-
-# === AI Simplifiée ===
-def ai_prediction(histo, tours=20):
-    X = np.array(range(len(histo))).reshape(-1, 1)
-    y = np.array(histo)
-    model = LinearRegression()
-    model.fit(X, y)
-    X_pred = np.array(range(len(histo), len(histo)+tours)).reshape(-1, 1)
-    y_pred = model.predict(X_pred)
-    return np.round(y_pred, 2)
-
-# === Stratégie Expert ===
-def expert_predictions(histo, tours=20):
-    results = []
-    base = histo[-1] if histo else 2.0
-    for i in range(tours):
-        rep = round(base + np.sin(i)*random.uniform(0.3, 1.2), 2)
-        results.append(rep)
-    return results
-
-# === Combinaison & Affichage ===
-def prediction_combinee(histo, n_tour):
-    ai_preds = ai_prediction(histo)
-    exp_preds = expert_predictions(histo)
-    results = []
-    for i, (a, e) in enumerate(zip(ai_preds, exp_preds)):
-        comb = round((a + e)/2, 2)
-        taux = min(100, round(90 + abs(a - e)*2, 1))
-        results.append((n_tour + i + 1, comb, taux))
-    return results
-
-# === Résultats ===
-if historique and dernier_tour.isdigit():
-    résultats = prediction_combinee(historique, int(dernier_tour))
-    for tour, val, taux in résultats:
-        couleur = "🔘" if val < 2 else "💜" if val < 10 else "🔴"
-        st.write(f"T{tour} → {val}x {couleur} — Assurance: {taux}%")
-else:
-    st.info("Veuillez entrer des données valides pour afficher la prédiction.")
+if __name__ == "__main__":
+    main()
