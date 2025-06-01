@@ -1,6 +1,9 @@
 aviator_prediction_app.py
 
-import streamlit as st import numpy as np import random from sklearn.linear_model import LinearRegression
+import streamlit as st
+import numpy as np
+import random from sklearn.linear_model
+import LinearRegression
 
 st.set_page_config(page_title="Prediction by Mickael TOP EXACTE") st.title("🎯 Prediction by Mickael TOP EXACTE") st.subheader("Version combinée: Expert logique + IA simple")
 
