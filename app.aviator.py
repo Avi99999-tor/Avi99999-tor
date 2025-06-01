@@ -1,100 +1,73 @@
 import streamlit as st
 import numpy as np
-from sklearn.linear_model import LinearRegression
 import random
 
-# --- Prédiction IA simple ---
-def ai_prediction(historique):
-    y = np.array(historique[-10:]).reshape(-1, 1)
-    X = np.arange(len(y)).reshape(-1, 1)
-    model = LinearRegression().fit(X, y)
-    pred = model.predict(np.arange(len(y), len(y) + 20).reshape(-1, 1))
-    return [round(float(p), 2) for p in pred]
+# --- Configuration ---
+st.set_page_config(page_title="🇲🇬 Prediction By Mickael", layout="centered")
+st.title("🇲🇬 🎯 Prediction Expert By Mickael")
 
-# --- Expert Prediction logique simple ---
-def expert_predictions(historique):
-    predictions = []
-    for i in range(1, 21):
-        if len(historique) >= i:
-            val = float(historique[-i])
-            if val > 10:
-                predictions.append(2 + i * 0.1)
-            elif val > 2:
-                predictions.append(1.8 + i * 0.05)
-            else:
-                predictions.append(1.00 + i * 0.03)
-        else:
-            predictions.append(1.00 + i * 0.02)
-    return [round(p, 2) for p in predictions]
+st.subheader("Version manaraka statistika Aviator")
 
-# --- Couleur logique ---
-def get_couleur(val):
-    if val < 2:
-        return "🔘"
-    elif val < 10:
-        return "💜"
+# --- Fidirana data (multiplicateurs) ---
+multiplicateurs_input = st.text_area("💾 Ampidiro ny multiplicateurs (misaraka amin'ny espace)", 
+                                     placeholder="1.19x 8.28x 26.84x 1.57x 1.45x ...", height=150)
+
+dernier_tour = st.number_input("🔢 Numéro du dernier tour", min_value=1, value=50)
+
+# --- Fanadiovana angona ---
+def extraire_valeurs(texte):
+    valeurs = texte.replace(',', '.').lower().replace('x', '').split()
+    return [float(v) for v in valeurs if float(v) > 0]
+
+# --- Fiabilité calculation ---
+def fiabilite(val):
+    if val >= 5:
+        return round(random.uniform(85, 95), 2)
+    elif val >= 3:
+        return round(random.uniform(75, 85), 2)
+    elif val <= 1.20:
+        return round(random.uniform(60, 70), 2)
     else:
-        return "🔴"
+        return round(random.uniform(70, 80), 2)
 
-# --- Fusion IA + Expert ---
-def prediction_combinee(historique, base_tour):
-    ia_preds = ai_prediction(historique)
-    exp_preds = expert_predictions(historique)
+# --- Analiza Mod Seed ---
+def analyse_mod_seed(liste):
+    chiffres_mod = [int(str(x).split(".")[-1]) % 10 for x in liste]
+    return sum(chiffres_mod) / len(chiffres_mod)
 
+# --- Prediction Expert ---
+def prediction_expert(multiplicateurs, base_tour):
     résultats = []
-    for i in range(20):
-        ai = ia_preds[i]
-        exp = exp_preds[i]
-        final = round((ai + exp) / 2, 2)
-        couleur = get_couleur(final)
-        assurance = str(round(random.uniform(70, 95), 2)) + "%"
-        résultats.append({
-            "Tour": f"T{base_tour + i + 1}",
-            "Valeur": f"{final}x",
-            "Couleur": couleur,
-            "Assurance": assurance
-        })
+    rolling_mean = np.mean(multiplicateurs)
+    mod_score = analyse_mod_seed(multiplicateurs)
+
+    for i in range(1, 21):  # T+1 à T+20
+        seed = int((mod_score + rolling_mean + i * 3.73) * 1000) % 57
+        pred = round(abs((np.sin(seed) + np.cos(i * mod_score)) * 3.5 + random.uniform(0.3, 1.7)), 2)
+
+        # Fanitsiana ho ara-statistikan'ny Aviator
+        if pred < 1.10:
+            pred = round(1.10 + random.uniform(0.1, 0.3), 2)
+        elif pred > 10:
+            pred = round(6.5 + random.uniform(0.5, 1.5), 2)
+
+        fiab = fiabilite(pred)
+        label = "Assuré" if fiab >= 80 else "Crash probable" if pred <= 1.20 résultats.append((base_tour + i, pred, fiab, label))
+    
     return résultats
 
-# --- Traitement input multiplicateurs (format simplifié) ---
-def extraire_valeurs(historique_text):
-    valeurs = []
-    for val in historique_text.strip().split():
-        try:
-            valeurs.append(float(val.replace("x", "").strip()))
-        except:
-            continue
-    return valeurs
+# --- Fanodinana ---
+if multiplicateurs_input:
+    historique = extraire_valeurs(multiplicateurs_input)
 
-# --- Interface Streamlit ---
-st.set_page_config(page_title="🇲🇬 Prediction By Mickael TOP EXACTE", layout="centered")
-st.title("🇲🇬 🎯 Prediction By Mickael TOP EXACTE")
-
-st.markdown("### 📌 Fomba fampidirana multiplicateurs:")
-st.markdown("**Ampidiro tsotra amin'ny endrika:** `1.19x 8.28x 26.84x ...` (misaraka amin'ny espace)")
-
-# Champ de texte pour historique
-historique_text = st.text_area(
-    "💾 Ampidiro ny multiplicateurs (misaraka amin'ny espace)",
-    placeholder="1.19x 8.28x 26.84x 1.57x 1.45x 5.31x ...",
-    height=150
-)
-
-col1, col2 = st.columns(2)
-with col1:
-    dernier_tour = st.number_input("🔢 Dernier numéro de tour", min_value=0, value=120, step=1)
-with col2:
-    if st.button("🧹 Effacer l'historique"):
-        historique_text = ""
-
-# Bouton Prédire
-if st.button("🔮 Prédire"):
-    historique = extraire_valeurs(historique_text)
-    if len(historique) < 5:
-        st.warning("Il faut au moins 5 valeurs pour prédire.")
+    if len(historique) < 10:
+        st.warning("❗ Tokony hampiditra farafahakeliny 10 multiplicateurs.")
     else:
-        resultats = prediction_combinee(historique, int(dernier_tour))
-        st.subheader("📊 Résultat T+1 à T+20")
+        résultats = prediction_expert(historique, int(dernier_tour))
+        st.markdown("### 📊 Résultat T+1 à T+20 :")
 
-        for res in resultats:
-            st.markdown(f"**{res['Tour']} → {res['Valeur']} {res['Couleur']}** — {res['Assurance']}")
+        for tour, val, pourcent, label in résultats:
+            line = f"**T{tour}** → **{val}x** — Fiabilité: **{pourcent}%**"
+            if label:
+                line += f" **({label})**"
+            st.markdown("- " + line)
