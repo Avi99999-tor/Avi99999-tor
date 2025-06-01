@@ -60,4 +60,35 @@ def prediction_expert(multiplicateurs, base_tour):
     rolling_mean = np.mean(multiplicateurs)
     mod_score = sum([int(str(x).split(".")[-1]) % 10 for x in multiplicateurs]) / len(multiplicateurs)
 
-    for i in range(1, 21):  # T+1 à
+    for i in range(1, 21):  # T+1 à T+20 (Manomboka amin'ny 205)
+        seed = int((mod_score + rolling_mean + i * 3.73) * 1000) % 47
+        pred_expert = round(abs((np.sin(seed) + np.cos(i * mod_score)) * 2.5 + random.uniform(0.3, 1.2)), 2)
+
+        # Filtrage sy fanatsarana ho **mifanaraka amin'ny Aviator**
+        if pred_expert < 1.10:
+            pred_expert = round(1.10 + random.uniform(0.1, 0.3), 2)
+        elif pred_expert > 10:
+            pred_expert = round(6.2 + random.uniform(0.5, 1.5), 2)
+
+        fiab = fiabilite(pred_expert)
+        label = "Assuré" if fiab >= 80 else ("Crash probable" if pred_expert <= 1.20 else "")
+
+        résultats.append((base_tour + i, pred_expert, fiab, label))  # **Indentation corrigée!**
+    
+    return résultats
+
+# --- Fanodinana ---
+if calculer:  # Bouton tsindriana mba hanaovana prédiction
+    historique = extraire_valeurs(multiplicateurs_input)
+
+    if len(historique) < 10:
+        st.warning("❗ Tokony hampiditra farafahakeliny 10 multiplicateurs.")
+    else:
+        résultats = prediction_expert(historique, int(dernier_tour))
+        st.markdown("### 📊 Résultat T+205 à T+224 :")
+
+        for tour, val, pourcent, label in résultats:
+            line = f"**T{tour}** → **{val}x** — Fiabilité: **{pourcent}%**"
+            if label:
+                line += f" **({label})**"
+            st.markdown("- " + line)
