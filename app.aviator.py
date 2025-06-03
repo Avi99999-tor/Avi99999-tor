@@ -51,12 +51,12 @@ def regression_prediction(multiplicateurs):
     model = LinearRegression().fit(X, y)
     pred = model.predict(np.arange(len(multiplicateurs), len(multiplicateurs) + 20).reshape(-1, 1))
     
-    # **Fanovana probabilités mba hanaraka logique Aviator**
+    # **Fanovana probabilités hanaraka logique Aviator**
     moyenne = np.mean(multiplicateurs)
     deviation = np.std(multiplicateurs)
     
-    pred = [round(max(1.00, min(float(p) + random.uniform(-deviation, deviation), moyenne + 1.5)), 2) for p in pred]
-    
+    pred = [round(max(1.00, min(float(p) + random.uniform(-deviation * 0.4, deviation * 0.6), moyenne + random.uniform(0.3, 1.5))), 2) for p in pred]
+
     return pred
 
 # --- Prediction Expert ---
@@ -95,10 +95,14 @@ def prediction_combinee(historique, base_tour):
 
         # **Fanovana pondération mba hanaraka trend historique**
         trend = np.mean(historique)
-        final = round((ai * 0.6 + exp * 0.4), 2) if trend > 2.5 else round((ai * 0.4 + exp * 0.6), 2)
-
-        final = max(final, 1.00)
+        volatilité = np.std(historique)
         
+        poids_AI = round(0.4 + (volatilité * 0.01), 2)
+        poids_Expert = round(0.6 - (volatilité * 0.01), 2)
+
+        final = round((ai * poids_AI + exp * poids_Expert), 2)
+        final = max(final, 1.00)
+
         fiabilité = fiabilite(final)
 
         résultats.append({
