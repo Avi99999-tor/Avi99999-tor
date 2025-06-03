@@ -51,12 +51,15 @@ def regression_prediction(multiplicateurs):
     model = LinearRegression().fit(X, y)
     pred = model.predict(np.arange(len(multiplicateurs), len(multiplicateurs) + 20).reshape(-1, 1))
     
-    # **Fanitsiana ny probabilités mba hanaraka Aviator**
-    pred = [round(max(1.00, min(float(p), 5.00)), 2) for p in pred]  # **Tsy mamokatra valeur x100**
+    # **Fanovana probabilités mba hanaraka logique Aviator**
+    moyenne = np.mean(multiplicateurs)
+    deviation = np.std(multiplicateurs)
+    
+    pred = [round(max(1.00, min(float(p) + random.uniform(-deviation, deviation), moyenne + 1.5)), 2) for p in pred]
     
     return pred
 
-# --- Prediction Expert ---
+# --- Prediction Expert (Mijanona toy ny taloha) ---
 def prediction_expert(multiplicateurs, base_tour):
     résultats = []
     rolling_mean = np.mean(multiplicateurs)
@@ -69,7 +72,7 @@ def prediction_expert(multiplicateurs, base_tour):
         # **Fanovana probabilités hanaraka ny historique an'Aviator**
         if pred_expert < 1.10:
             pred_expert = round(1.10 + random.uniform(0.05, 0.3), 2)
-        elif pred_expert > 5.00:  # **Tsy atao max 6 fa manaraka probabilités historique**
+        elif pred_expert > 5.00:
             pred_expert = round(random.uniform(3.0, 5.0), 2)
 
         fiab = fiabilite(pred_expert)
@@ -91,8 +94,13 @@ def prediction_combinee(historique, base_tour):
         exp = exp_preds[i][1]
 
         # **Fanovana pondération mba hanaraka trend historique**
-        final = round((ai * 0.5 + exp * 0.5), 2)  # **Mifandanja tsara AI sy Expert**
-        final = max(final, 1.00)  # **Mifanaraka amin'ny probabilités stable**
+        trend = np.mean(historique)
+        if trend > 2.5:
+            final = round((ai * 0.6 + exp * 0.4), 2)  # **AI dominant**
+        else:
+            final = round((ai * 0.4 + exp * 0.6), 2)  # **Expert dominant**
+
+        final = max(final, 1.00)  # **Miantoka probabilités logique**
         
         fiabilité = fiabilite(final)
 
