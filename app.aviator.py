@@ -51,10 +51,13 @@ def regression_prediction(multiplicateurs):
     model = LinearRegression().fit(X, y)
     pred = model.predict(np.arange(len(multiplicateurs), len(multiplicateurs) + 20).reshape(-1, 1))
     
-    # **Ajustement amin'ny valeurs extrêmes**
-    pred = [max(1.10, min(float(p), 6.0)) for p in pred]  # **Miantoka probabilités stable**
+    # **Fanovana probabilités mba hanaraka logique Aviator**
+    moyenne = np.mean(multiplicateurs)
+    deviation = np.std(multiplicateurs)
     
-    return [round(p, 2) for p in pred]
+    pred = [round(max(1.00, min(float(p) + random.uniform(-deviation, deviation), moyenne + 1.5)), 2) for p in pred]
+    
+    return pred
 
 # --- Prediction Expert ---
 def prediction_expert(multiplicateurs, base_tour):
@@ -66,8 +69,11 @@ def prediction_expert(multiplicateurs, base_tour):
         seed = int((mod_score + rolling_mean + i * 3.73) * 1000) % 47
         pred_expert = round(abs((np.sin(seed) + np.cos(i * mod_score)) * 2.3 + random.uniform(0.2, 1)), 2)
 
-        # **Fanovana Gaussian smoothing**
-        pred_expert = max(1.10, min(pred_expert, 6.0))  # **Miantoka probabilités stable**
+        # **Fanovana probabilités hanaraka ny historique an'Aviator**
+        if pred_expert < 1.10:
+            pred_expert = round(1.10 + random.uniform(0.05, 0.3), 2)
+        elif pred_expert > 5.00:
+            pred_expert = round(random.uniform(3.0, 5.0), 2)
 
         fiab = fiabilite(pred_expert)
         label = "Assuré" if fiab >= 80 else ("Crash probable" if pred_expert <= 1.20 else "")
@@ -87,13 +93,11 @@ def prediction_combinee(historique, base_tour):
         ai = ia_preds[i]
         exp = exp_preds[i][1]
 
-        # **Ajustement ny AI sy Expert Ratio**
-        if np.mean(historique) > 3:  # **Raha trend stable**
-            final = round((ai * 0.6 + exp * 0.4), 2)  # **AI dominant**
-        else:  # **Raha volatile**
-            final = round((ai * 0.4 + exp * 0.6), 2)  # **Expert dominant**
+        # **Fanovana pondération mba hanaraka trend historique**
+        trend = np.mean(historique)
+        final = round((ai * 0.6 + exp * 0.4), 2) if trend > 2.5 else round((ai * 0.4 + exp * 0.6), 2)
 
-        final = max(final, 1.10)  # **Mifandanja probabilités**
+        final = max(final, 1.00)
         
         fiabilité = fiabilite(final)
 
@@ -117,4 +121,4 @@ if calculer:  # **Bouton tsindriana mba hanaovana prédiction**
         résultats_df = prediction_combinee(historique, int(dernier_tour))
 
         st.markdown("### 📊 Résultat T+205 à T+224 :")
-        st.table(résultats_df)  # **Miseho amin'ny tabilao**
+        st.table(résultats_df)
