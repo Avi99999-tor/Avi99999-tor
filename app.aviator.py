@@ -51,7 +51,10 @@ def regression_prediction(multiplicateurs):
     model = LinearRegression().fit(X, y)
     pred = model.predict(np.arange(len(multiplicateurs), len(multiplicateurs) + 20).reshape(-1, 1))
     
-    return [round(float(p), 2) for p in pred]
+    # **Ajustement amin'ny valeurs extrêmes**
+    pred = [max(1.10, min(float(p), 6.0)) for p in pred]  # **Miantoka probabilités stable**
+    
+    return [round(p, 2) for p in pred]
 
 # --- Prediction Expert ---
 def prediction_expert(multiplicateurs, base_tour):
@@ -84,15 +87,14 @@ def prediction_combinee(historique, base_tour):
         ai = ia_preds[i]
         exp = exp_preds[i][1]
 
-        # **Fanovana ny pondération AI sy Expert ho dynamique**
+        # **Ajustement ny AI sy Expert Ratio**
         if np.mean(historique) > 3:  # **Raha trend stable**
-            final = round((ai * 0.7 + exp * 0.3), 2)  # **AI dominant**
+            final = round((ai * 0.6 + exp * 0.4), 2)  # **AI dominant**
         else:  # **Raha volatile**
-            final = round((ai * 0.3 + exp * 0.7), 2)  # **Expert dominant**
+            final = round((ai * 0.4 + exp * 0.6), 2)  # **Expert dominant**
 
-        # **Miantoka probabilités tsy miova loatra**
-        final = max(final, 1.10)
-
+        final = max(final, 1.10)  # **Mifandanja probabilités**
+        
         fiabilité = fiabilite(final)
 
         résultats.append({
@@ -103,7 +105,7 @@ def prediction_combinee(historique, base_tour):
             "Fiabilité": f"{fiabilité}%"
         })
     
-    return pd.DataFrame(résultats)  # **Miseho amin'ny tabilao**
+    return pd.DataFrame(résultats)
 
 # --- Fanodinana ---
 if calculer:  # **Bouton tsindriana mba hanaovana prédiction**
