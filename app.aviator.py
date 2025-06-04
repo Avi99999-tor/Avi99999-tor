@@ -1,119 +1,93 @@
 import streamlit as st
 import numpy as np
 import random
-from sklearn.linear_model import LinearRegression
+import pandas as pd
 from datetime import datetime, timedelta
+from sklearn.linear_model import LinearRegression
 
 # --- Configuration ---
-st.set_page_config(page_title="🇲🇬 Prediction Hybride By Mickael", layout="centered")
-st.title("🇲🇬 🎯 Prediction Hybride By Mickael")
+st.set_page_config(page_title="🇲🇬 Prediction By Mickael", layout="centered")
+st.title("🇲🇬 🎯 Prediction Expert By Mickael")
 
-st.subheader("🔁 Stratégie AI + Heure automatique")
+st.subheader("Fanatsarana probabilités AI sy Expert amin’ny lera ⏳")
 
-# --- Fidirana angona ---
+# --- Fidirana data (multiplicateurs) ---
 multiplicateurs_input = st.text_area("💾 Ampidiro ny multiplicateurs (misaraka amin'ny espace)", 
-                                     placeholder="1.19x 8.28x 26.84x 1.57x 1.45x ...", height=150)
+                                     placeholder="1.99x 2.30x 1.42x 1.12x ...", height=150)
 
-dernier_tour = st.number_input("🔢 Numéro du dernier tour", min_value=1, value=204)
-dernier_multiplicateur = st.number_input("🎯 Multiplicateur Tn", min_value=1.00, value=1.51)
-
-heure_str = st.text_input("🕒 Entrer l'heure de Tn (dernier tour) au format hh:mm:ss", placeholder="12:31:02")
-
-# --- Validation heure ---
-def valider_heure(heure_str):
-    try:
-        h = datetime.strptime(heure_str.strip(), "%H:%M:%S").time()
-        return h
-    except:
-        st.error("⛔ Format heure invalide. Ampidiro amin'ny endrika hh:mm:ss (oh: 12:31:02)")
-        return None
-
-# --- Fanadiovana ny texte input ---
-def extraire_valeurs(texte):
-    valeurs = texte.replace(',', '.').lower().replace('x', '').split()
-    propres = []
-    for v in valeurs:
-        try:
-            val = float(v)
-            if val > 0:
-                propres.append(val)
-        except ValueError:
-            continue
-    return propres
-
-# --- Calcul durée base sur multiplicateur ---
-def calculer_duree(m):
-    if 1.00 <= m < 2.00:
-        d = (m * 13) / 1.33
-    elif 2.00 <= m < 3.00:
-        d = (m * 20) / 2.29
-    elif 3.00 <= m < 4.00:
-        d = (m * 23) / 3.12
-    elif 4.00 <= m < 5.00:
-        d = (m * 27) / 4.27
-    elif 5.00 <= m <= 8.00:
-        d = (m * 28) / 5.01
-    elif 9.00 <= m <= 20.00:
-        d = (m * 39) / 11.87
-    else:
-        d = 15
-    if d % 1 < 0.80:
-        return int(d)
-    else:
-        return int(d) + 1
-
-# --- Fiabilité ---
-def fiabilite(val):
-    if val >= 5:
-        return round(random.uniform(85, 95), 2)
-    elif val >= 3:
-        return round(random.uniform(75, 85), 2)
-    elif val <= 1.20:
-        return round(random.uniform(60, 70), 2)
-    else:
-        return round(random.uniform(70, 80), 2)
-
-# --- Algorithme AI ---
-def prediction_AI(multiplicateurs, base_tour, heure_tn, m_tn):
-    resultats = []
-    rolling_mean = np.mean(multiplicateurs)
-    mod_score = sum([int(str(x).split(".")[-1]) % 10 for x in multiplicateurs]) / len(multiplicateurs)
-
-    heure_courante = datetime.combine(datetime.today(), heure_tn)
-    duree_precedente = calculer_duree(m_tn)
-    heure_suivante = heure_courante + timedelta(seconds=duree_precedente)
-
-    for i in range(1, 21):
-        seed = int((mod_score + rolling_mean + i * 3.73) * 1000) % 47
-        pred = round(abs((np.sin(seed) + np.cos(i * mod_score)) * 2.5 + random.uniform(0.3, 1.2)), 2)
-
-        if pred < 1.10:
-            pred = round(1.10 + random.uniform(0.1, 0.3), 2)
-        elif pred > 10:
-            pred = round(6.2 + random.uniform(0.5, 1.5), 2)
-
-        duree = calculer_duree(pred)
-        heure_suivante += timedelta(seconds=duree)
-        fiab = fiabilite(pred)
-
-        resultats.append((base_tour + i, pred, heure_suivante.strftime("%H:%M:%S"), fiab))
-
-    return resultats
+dernier_tour = st.number_input("🔢 Numéro du dernier tour", min_value=1, value=34)
+dernier_heure = st.text_input("🕒 Entrer l'heure du dernier tour (HH:MM:SS)", value="12:23:56")
 
 # --- Bouton Calculer ---
-calculer = st.button("🔮 Prédire T+1 à T+20")
+calculer = st.button("🔄 Calculer les prédictions")
 
-# --- Fampisehoana vokatra ---
-if calculer:
-    historique = extraire_valeurs(multiplicateurs_input)
-    heure_validee = valider_heure(heure_str)
-
-    if len(historique) < 10:
-        st.warning("⚠️ Ampidiro farafahakeliny 10 multiplicateurs.")
-    elif heure_validee is None:
-        st.warning("⚠️ Misy olana amin'ny ora nampidirina.")
+# --- Calcul durée multiplicateur (manaraka strategia vaovao) ---
+def calcul_duree(multiplicateur):
+    if 1.00 <= multiplicateur < 2.00:
+        duree = (multiplicateur * 13) / 1.33
+    elif 2.00 <= multiplicateur < 3.00:
+        duree = (multiplicateur * 20) / 2.29
+    elif 3.00 <= multiplicateur < 4.00:
+        duree = (multiplicateur * 23) / 3.12
+    elif 4.00 <= multiplicateur < 5.00:
+        duree = (multiplicateur * 27) / 4.27
+    elif 5.00 <= multiplicateur < 9.00:
+        duree = (multiplicateur * 28) / 5.01
+    elif 9.00 <= multiplicateur <= 20.00:
+        duree = (multiplicateur * 39) / 11.87
     else:
-        resultats = prediction_AI(historique, int(dernier_tour), heure_validee, dernier_multiplicateur)
-        st.success("✅ Résultat T+1 à T+20")
-        for t, m, h, f in resultats:
-            st.markdown(f"**T{t}** ➤ **{m}x** — 🕓 {h} — 🎯 Fiabilité: **{f}%**")
+        duree = 10  # Valeur par défaut
+
+    # **Boriborizina automatique**
+    return round(duree) if duree % 1 < 0.80 else round(duree + 1)
+
+# --- Algorithme AI: Régression avancée ---
+def regression_prediction(multiplicateurs):
+    X = np.arange(len(multiplicateurs)).reshape(-1, 1)
+    y = np.array(multiplicateurs).reshape(-1, 1)
+    model = LinearRegression().fit(X, y)
+    pred = model.predict(np.arange(len(multiplicateurs), len(multiplicateurs) + 20).reshape(-1, 1))
+    return [round(max(1.00, float(p)), 2) for p in pred]
+
+# --- Prediction Expert ---
+def prediction_expert(multiplicateurs):
+    résultats = []
+    rolling_mean = np.mean(multiplicateurs)
+    for i in range(1, 21):
+        seed = int((rolling_mean + i * 3.73) * 1000) % 47
+        résultats.append(round(abs(np.sin(seed) * 3.2 + random.uniform(0.3, 1.2)), 2))
+    return résultats
+
+# --- Prediction Combinée (Avec heure automatique) ---
+def prediction_combinee(historique, base_tour, base_heure):
+    ia_preds = regression_prediction(historique)
+    exp_preds = prediction_expert(historique)
+    résultats = []
+
+    heure_actuelle = datetime.strptime(base_heure, "%H:%M:%S")
+
+    for i in range(20):
+        ai, exp = ia_preds[i], exp_preds[i]
+        final = round((ai * 0.5 + exp * 0.5), 2)
+
+        # **Calcul automatique heure prediction**
+        duree = calcul_duree(final)
+        heure_actuelle += timedelta(seconds=duree)
+        heure_prediction = heure_actuelle.strftime("%H:%M:%S")
+
+        résultats.append({
+            "Tour": f"T{base_tour + i + 1}",
+            "Prediction IA": f"{ai}x",
+            "Prediction Expert": f"{exp}x",
+            "Résultat Final": f"{final}x",
+            "Heure": heure_prediction  # **Horaire automatique**
+        })
+    
+    return pd.DataFrame(résultats)
+
+# --- Fanodinana ---
+if calculer:
+    historique = [float(x) for x in multiplicateurs_input.replace(",", ".").replace("x", "").split()]
+    résultats_df = prediction_combinee(historique, int(dernier_tour), dernier_heure)
+    st.markdown("### 📊 Résultat T+35 à T+45 :")
+    st.table(résultats_df)
