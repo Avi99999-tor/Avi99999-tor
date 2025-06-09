@@ -23,8 +23,8 @@ if username == "261 Topexacte 1xbet" and password == "288612byTsell":
     multiplicateurs_input = st.text_area("📥 Ampidiro ny historique (ex: 1.21x 1.33x 12.66x ...)", 
                                          placeholder="1.21x 1.33x 12.66x 1.44x ...", height=150)
 
-    dernier_tour = st.number_input("🔢 Numéro du dernier tour", min_value=1, value=552)
-    heure_input = st.text_input("🕒 Heure du dernier tour (hh:mm:ss)", value="20:30:05")
+    dernier_tour = st.number_input("🔢 Numéro du dernier tour", min_value=1, value=123) # Mise à jour pour logique de calcul heure
+    heure_input = st.text_input("🕒 Heure du dernier tour (hh:mm:ss)", value="20:30:05") # Heure réelle du dernier tour
 
     calculer = st.button("🔮 Lancer la prédiction Hybride (T+1 à T+20)")
 
@@ -34,7 +34,7 @@ if username == "261 Topexacte 1xbet" and password == "288612byTsell":
         propres = [float(v) for v in valeurs if v.replace('.', '', 1).isdigit()]
         return propres
 
-    # --- Calcul durée multiplicateur (Version Fine-tuned) ---
+    # --- Calcul durée multiplicateur ---
     def calculer_duree(m):
         if 1.00 <= m < 1.35:
             return round((m * 12.5) / 1.18)
@@ -48,22 +48,10 @@ if username == "261 Topexacte 1xbet" and password == "288612byTsell":
             return round((m * 25) / 2.95)
         elif 4.00 <= m < 4.99:
             return round((m * 29) / 4.10)
-        elif 5.00 <= m < 5.49:
-            return round((m * 30) / 5.00)
-        elif 5.50 <= m < 5.99:
-            return round((m * 31) / 5.25)
-        elif 6.00 <= m < 6.99:
-            return round((m * 32) / 6.00)
-        elif 7.00 <= m < 7.99:
-            return round((m * 33) / 6.80)
-        elif 8.00 <= m < 8.99:
-            return round((m * 34) / 7.50)
-        elif 9.00 <= m < 15.99:
-            return round((m * 36) / 10.45)
         else:
             return round((m * 40) / 18.15)
 
-    # --- Calcul Heure automatique ---
+    # --- Calcul Heure automatique (Fixe amin'ny logique stable) ---
     def calcul_heure(base_heure, multiplicateurs, dernier_tour):
         heure_actuelle = datetime.strptime(base_heure, "%H:%M:%S")
         résultats = []
