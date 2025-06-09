@@ -24,6 +24,19 @@ if username == "261 Topexacte 1xbet" and password == "288612byTsell":
 
     calculer = st.button("🔮 Lancer la prédiction")
 
+    # --- Fanadiovana angona (Corrections) ---
+    def extraire_valeurs(texte):
+        valeurs = texte.replace(',', '.').lower().replace('x', '').split()
+        propres = []
+        for v in valeurs:
+            try:
+                val = float(v)
+                if val > 0:
+                    propres.append(val)
+            except ValueError:
+                continue
+        return propres
+
     # --- Calcul durée multiplicateur ---
     def calcul_duree(multiplicateur):
         if 1.00 <= multiplicateur < 1.35:
@@ -87,11 +100,14 @@ if username == "261 Topexacte 1xbet" and password == "288612byTsell":
 
     # --- Fanodinana ---
     if calculer:
-        historique = [float(x) for x in multiplicateurs_input.replace(",", ".").split()]
-        résultats_df = calcul_heure(heure_input, historique)
-        st.success("✅ Résultat Hybride T+1 à T+20")
-        for resultat in résultats_df:
-            st.markdown(f"**{resultat['Tour']}** ➤ **{resultat['Multiplicateur']}x** — 🕓 {resultat['Heure Prédite']}")
+        historique = extraire_valeurs(multiplicateurs_input)
+        if len(historique) < 5:
+            st.warning("⚠️ Ampidiro farafahakeliny 5 multiplicateurs.")
+        else:
+            résultats_df = calcul_heure(heure_input, historique)
+            st.success("✅ Résultat Hybride T+1 à T+20")
+            for resultat in résultats_df:
+                st.markdown(f"**{resultat['Tour']}** ➤ **{resultat['Multiplicateur']}x** — 🕓 {resultat['Heure Prédite']}")
 
 else:
     st.warning("⚠️ Cliquez sur 'Connexion' pour entrer votre code utilisateur.")
