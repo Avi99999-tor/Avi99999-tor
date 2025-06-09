@@ -24,19 +24,6 @@ if username == "261 Topexacte 1xbet" and password == "288612byTsell":
 
     calculer = st.button("🔮 Lancer la prédiction")
 
-    # --- Fanadiovana angona (Corrections) ---
-    def extraire_valeurs(texte):
-        valeurs = texte.replace(',', '.').lower().replace('x', '').split()
-        propres = []
-        for v in valeurs:
-            try:
-                val = float(v)
-                if val > 0:
-                    propres.append(val)
-            except ValueError:
-                continue
-        return propres
-
     # --- Calcul durée multiplicateur ---
     def calcul_duree(multiplicateur):
         if 1.00 <= multiplicateur < 1.35:
@@ -83,7 +70,7 @@ if username == "261 Topexacte 1xbet" and password == "288612byTsell":
         return round(duree) if duree % 1 < 0.80 else round(duree + 1)
 
     # --- Calcul Heure automatique ---
-    def calcul_heure(base_heure, multiplicateurs):
+    def calcul_heure(base_heure, multiplicateurs, dernier_tour):
         heure_actuelle = datetime.strptime(base_heure, "%H:%M:%S")
         résultats = []
         
@@ -91,7 +78,7 @@ if username == "261 Topexacte 1xbet" and password == "288612byTsell":
             duree_sec = calcul_duree(multiplicateur)
             heure_actuelle += timedelta(seconds=duree_sec)
             résultats.append({
-                "Tour": f"T{dernier_t + i + 1}",
+                "Tour": f"T{dernier_tour + i + 1}",
                 "Multiplicateur": multiplicateur,
                 "Heure Prédite": heure_actuelle.strftime("%H:%M:%S")
             })
@@ -100,14 +87,11 @@ if username == "261 Topexacte 1xbet" and password == "288612byTsell":
 
     # --- Fanodinana ---
     if calculer:
-        historique = extraire_valeurs(multiplicateurs_input)
-        if len(historique) < 5:
-            st.warning("⚠️ Ampidiro farafahakeliny 5 multiplicateurs.")
-        else:
-            résultats_df = calcul_heure(heure_input, historique)
-            st.success("✅ Résultat Hybride T+1 à T+20")
-            for resultat in résultats_df:
-                st.markdown(f"**{resultat['Tour']}** ➤ **{resultat['Multiplicateur']}x** — 🕓 {resultat['Heure Prédite']}")
+        historique = [float(x) for x in multiplicateurs_input.replace(",", ".").split()]
+        résultats_df = calcul_heure(heure_input, historique, dernier_tour)
+        st.success("✅ Résultat Hybride T+1 à T+20")
+        for resultat in résultats_df:
+            st.markdown(f"**{resultat['Tour']}** ➤ **{resultat['Multiplicateur']}x** — 🕓 {resultat['Heure Prédite']}")
 
 else:
     st.warning("⚠️ Cliquez sur 'Connexion' pour entrer votre code utilisateur.")
