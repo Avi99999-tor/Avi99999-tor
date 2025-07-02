@@ -1,154 +1,114 @@
 import streamlit as st
-import numpy as np
-import random
-from sklearn.linear_model import LinearRegression
 from datetime import datetime, timedelta
-import math
 from PIL import Image
+import numpy as np
 import easyocr
 
 # --- Configuration ---
 st.set_page_config(page_title="🎯 Hybride Prediction Aviator by Mickael", layout="centered")
 st.title("🇲🇬 🎯 Hybride Prediction Aviator by Mickael")
-st.subheader("🤖 Stratégie Hybride : AI & Mode Expert + OCR automatique")
 
-# --- Login System ---
-if 'authenticated' not in st.session_state:
-    st.session_state.authenticated = False
+# --- Interface de Connexion ---
+st.markdown("## 🔐 Connexion")
+username = st.text_input("👤 Nom utilisateur")
+password = st.text_input("🔑 Code secret", type="password")
 
-if not st.session_state.authenticated:
-    st.markdown("## 🔐 Connectez-vous")
-    username = st.text_input("👤 Nom d'utilisateur")
-    password = st.text_input("🔑 Mot de passe", type="password")
-    if st.button("🔓 Connecter"):
-        if username == "admin" and password == "mickael123":
-            st.session_state.authenticated = True
-            st.success("✅ Connecté avec succès!")
-        else:
-            st.error("❌ Identifiants incorrects.")
-    st.stop()
+if username == "admin" and password == "1234":
+    st.success("✅ Connexion réussie!")
 
-# --- Upload Image OCR ---
-st.markdown("### 📸 Upload image misy historique (capture écran)")
-uploaded_image = st.file_uploader("🖼️ Ampidiro capture de l'historique", type=["png", "jpg", "jpeg"])
+    # --- Upload OCR Image ---
+    st.markdown("### 📸 Upload image misy historique")
+    uploaded_image = st.file_uploader("🖼️ Ampidiro capture de l'historique", type=["png", "jpg", "jpeg"])
 
-if uploaded_image is not None:
-    try:
-        image = Image.open(uploaded_image)
-        st.image(image, caption="🖼️ Sary nampidirina", use_column_width=True)
-
-        reader = easyocr.Reader(['en'], gpu=False)
-        result = reader.readtext(np.array(image), detail=0)
-        historique_from_image = " ".join(result)
-
-        st.session_state['multiplicateurs_input_auto'] = historique_from_image
-        st.success("✅ OCR vita: texte nivoaka avy amin'ny image")
-        st.text_area("📜 Résultat OCR (azo ovaina raha ilaina)", 
-                     value=historique_from_image, height=100, key="ocr_result")
-
-    except Exception as e:
-        st.error(f"❌ OCR Error: {e}")
-
-# --- Fidirana angona texte ---
-multiplicateurs_input = st.text_area("📥 Ampidiro ny historique (ou image)", 
-                                     value=st.session_state.get("multiplicateurs_input_auto", ""), 
-                                     placeholder="1.21x 1.33x 12.66x 1.44x ...", height=150)
-
-dernier_tour = st.number_input("🔢 Numéro du dernier tour (correspondant au 1er multiplicateur)", min_value=1, value=100)
-heure_input = st.text_input("🕒 Heure du dernier tour (hh:mm:ss)", value="12:00:00")
-mode_expert = st.checkbox("🧠 Activer le mode Expert")
-calculer = st.button("🔮 Lancer la préd+1 à T+20)")
-
-# --- Fonctions ---
-def extraire_valeurs(texte):
-    valeurs = texte.replace(',', '.').lower().replace('x', '').split()
-    propres = []
-    for v in valeurs:
+    if uploaded_image is not None:
         try:
-            val = float(v)
-            if val > 0:
-                propres.append(val)
-        except ValueError:
-            continue
-    return propres
+            image = Image.open(uploaded_image)
+            st.image(image, caption="🖼️ Sary nampidirina", use_column_width=True)
 
-def calculer_duree(m):
-    if 1.00 <= m < 2.00:
-        d = (m * 13) / 1.33
-    elif 2.00 <= m < 3.00:
-        d = (m * 20) / 2.29
-    elif 3.00 <= m < 4.00:
-        d = (m * 23) / 3.12
-    elif 4.00 <= m < 5.00:
-        d = (m * 27) / 4.27
-    elif 5.00 <= m <= 8.00:
-        d = (m * 28) / 5.01
-    elif 9.00 <= m <= 20.00:
-        d = (m * 39) / 11.87
-    else:
-        d = 15
-    return int(d) if d % 1 < 0.8 else int(d) + 1
+            reader = easyocr.Reader(['en'], gpu=False)
+            result = reader.readtext(np.array(image), detail=0)
+            texte_ocr = " ".join(result)
 
-def fiabilite(val, expert=False):
-    if expert:
-        if val >= 5:
-            return round(random.uniform(92, 98), 2)
-        elif val >= 3:
-            return round(random.uniform(85, 92), 2)
+            st.session_state['ocr_result'] = texte_ocr
+            st.success("✅ OCR vita: texte nivoaka avy amin'ny image")
+            st.text_area("📜 Résultat OCR (azo ovaina raha ilaina)", 
+                         value=texte_ocr, height=100, key="ocr_result_affichage")
+
+        except Exception as e:
+            st.error(f"❌ OCR Error: {e}")
+
+    # --- Fidirana angona texte manokana ---
+    multiplicateurs_input = st.text_area(
+        "📥 Ampidiro ny historique (ex: 1.21x 1.33x 12.66x ...)",
+        value=st.session_state.get("ocr_result", ""),
+        placeholder="1.21x 1.33x 12.66x 1.44x ...", height=150
+    )
+
+    dernier_tour = st.number_input("🔢 Numéro du dernier tour", min_value=1, value=123)
+    heure_input = st.text_input("🕒 Heure du dernier tour (hh:mm:ss)", value="20:30:05")
+    calculer = st.button("🔮 Lancer la prédiction")
+
+    # --- Fonctions de traitement ---
+    def extraire_valeurs(texte):
+        valeurs = texte.replace(",", ".").lower().replace("x", "").split()
+        propres = []
+        for v in valeurs:
+            try:
+                val = float(v)
+                if val > 0:
+                    propres.append(val)
+            except:
+                continue
+        return propres
+
+    def calculer_duree(m):
+        if 1.00 <= m < 1.35:
+            return round((m * 12.5) / 1.18)
+        elif 1.35 <= m < 1.50:
+            return round((m * 14.5) / 1.29)
+        elif 1.51 <= m < 2.00:
+            return round((m * 17) / 1.49)
+        elif 2.00 <= m < 2.99:
+            return round((m * 21) / 2.18)
+        elif 3.00 <= m < 3.99:
+            return round((m * 25) / 2.95)
+        elif 4.00 <= m < 4.99:
+            return round((m * 29) / 4.10)
         else:
-            return round(random.uniform(80, 90), 2)
-    else:
-        if val >= 5:
-            return round(random.uniform(85, 95), 2)
-        elif val >= 3:
-            return round(random.uniform(75, 85), 2)
-        elif val <= 1.20:
-            return round(random.uniform(60, 70), 2)
+            return round((m * 40) / 18.15)
+
+    def calcul_heure(base_heure, multiplicateurs, dernier_tour):
+        heure_actuelle = datetime.strptime(base_heure, "%H:%M:%S")
+        résultats = []
+
+        base_m = multiplicateurs[0]
+        base_duree = calculer_duree(base_m)
+        heure_actuelle += timedelta(seconds=base_duree)
+
+        for i, multiplicateur in enumerate(multiplicateurs[1:]):
+            duree_sec = calculer_duree(multiplicateur)
+            résultats.append({
+                "Tour": f"T{dernier_tour + i + 1}",
+                "Multiplicateur": multiplicateur,
+                "Heure Prédite": heure_actuelle.strftime("%H:%M:%S")
+            })
+            heure_actuelle += timedelta(seconds=duree_sec)
+
+        return résultats
+
+    # --- Execution ---
+    if calculer:
+        historique = extraire_valeurs(multiplicateurs_input)
+        if len(historique) < 2:
+            st.warning("⚠️ Ampidiro farafahakeliny 2 multiplicateurs.")
         else:
-            return round(random.uniform(70, 80), 2)
+            try:
+                résultats_df = calcul_heure(heure_input, historique, dernier_tour)
+                st.success("✅ Résultat Hybride T+1 à T+20")
+                for resultat in résultats_df:
+                    st.markdown(f"**{resultat['Tour']}** ➤ **{resultat['Multiplicateur']}x** — 🕓 {resultat['Heure Prédite']}")
+            except Exception as e:
+                st.error(f"❌ Olana tamin'ny prediction: {e}")
 
-def prediction_expert(i, mod_score, rolling_mean):
-    base = (mod_score * i + rolling_mean) / (i % 5 + 1)
-    fluct = np.sin(i) + np.cos(mod_score)
-    return round(abs(base + fluct + random.uniform(0.1, 0.5)), 2)
-
-def prediction_hybride(multiplicateurs, base_tour, heure_str, mode_expert=False):
-    resultats = []
-    rolling_mean = np.mean(multiplicateurs)
-    mod_score = sum([int(str(x).split(".")[-1]) % 10 for x in multiplicateurs]) / len(multiplicateurs)
-
-    try:
-        heure_depart = datetime.strptime(heure_str, "%H:%M:%S")
-    except ValueError:
-        st.error("❌ Format ora diso! Tokony ho hh:mm:ss")
-        return []
-
-    heure_courante = heure_depart + timedelta(seconds=calculer_duree(multiplicateurs[0]))
-
-    for i in range(1, 21):
-        if mode_expert:
-            pred = prediction_expert(i, mod_score, rolling_mean)
-        else:
-            seed = int((mod_score + rolling_mean + i * 3.73) * 1000) % 47
-            pred = round(abs((np.sin(seed) + np.cos(i * mod_score)) * 2.5 + random.uniform(0.3, 1.2)), 2)
-
-        pred = max(1.10, min(pred, 15))
-        duree = calculer_duree(pred)
-        fiab = fiabilite(pred, expert=mode_expert)
-        resultats.append((base_tour + i, pred, heure_courante.strftime("%H:%M:%S"), fiab))
-        heure_courante += timedelta(seconds=duree)
-
-    return resultats
-
-# --- Execution ---
-if calculer:
-    historique = extraire_valeurs(multiplicateurs_input)
-    if len(historique) < 5:
-        st.warning("⚠️ Ampidiro farafahakeliny 5 multiplicateurs.")
-    else:
-        resultats = prediction_hybride(historique, int(dernier_tour), heure_input, mode_expert)
-        if resultats:
-            st.success("✅ Résultat Hybride T+1 à T+20")
-            for t, m, h, f in resultats:
-                label = "🌟" if mode_expert and m >= 5 else ""
-                st.markdown(f"**T{t}** ➤ **{m}x** — 🕓 {h} — 🎯 Fiabilité: **{f}%** {label}")
+else:
+    st.warning("⚠️ Mba ampidiro ny anarana sy mot de passe.")
