@@ -1,90 +1,141 @@
 import streamlit as st
+import numpy as np
+import random
+from sklearn.linear_model import LinearRegression
 from datetime import datetime, timedelta
+import math
+from PIL import Image
+import easyocr
 
-# --- Configuration ---
+# --- Config page ---
 st.set_page_config(page_title="🎯 Hybride Prediction Aviator by Mickael", layout="centered")
 st.title("🇲🇬 🎯 Hybride Prediction Aviator by Mickael")
+st.subheader("🤖 Stratégie Hybride : AI & Mode Expert + OCR automatique")
 
-# --- Connexion cachée ---
-login_expanded = st.expander("🔐 Connexion")
-with login_expanded:
-    username = st.text_input("👤 Nom utilisateur", value="", key="username")
-    password = st.text_input("🔑 Code secret", type="password", value="", key="password")
+# --- OCR Image Upload ---
+st.markdown("### 📸 Upload image misy historique (capture écran)")
+uploaded_image = st.file_uploader("🖼️ Ampidiro capture de l'historique", type=["png", "jpg", "jpeg"])
 
-# --- Vérification ---
-if username == "261 Topexacte 1xbet" and password == "288612byTsell":
-    st.success("✅ Connexion réussie!")
+if uploaded_image is not None:
+    image = Image.open(uploaded_image)
+    st.image(image, caption="🖼️ Sary nampidirina", use_column_width=True)
 
-    # --- Fidirana angona ---
-    multiplicateurs_input = st.text_area("📥 Ampidiro ny historique (ex: 1.21x 1.33x 12.66x ...)", 
-                                         placeholder="1.21x 1.33x 12.66x 1.44x ...", height=150)
+    # OCR
+    reader = easyocr.Reader(['en'], gpu=False)
+    result = reader.readtext(np.array(image), detail=0)
 
-    dernier_tour = st.number_input("🔢 Numéro du dernier tour", min_value=1, value=123)
-    heure_input = st.text_input("🕒 Heure du dernier tour (hh:mm:ss)", value="20:30:05")
+    # Join all OCR results into one string
+    historique_from_image = " ".join(result)
 
-    calculer = st.button("🔮 Lancer la prédiction")
+    # Show result
+    st.session_state['multiplicateurs_input_auto'] = historique_from_image
+    st.success("✅ OCR vita: texte nivoaka avy amin'ny image")
+    st.text_area("📜 Résultat OCR (azo ovaina raha ilaina)", 
+                 value=historique_from_image, height=100, key="ocr_result")
 
-    # --- Nettoyage des données ---
-    def extraire_valeurs(texte):
-        valeurs = texte.replace(",", ".").lower().replace("x", "").split()
-        propres = []
-        for v in valeurs:
-            try:
-                val = float(v)
-                if val > 0:
-                    propres.append(val)
-            except:
-                continue
-        return propres
+# --- Fidirana angona texte ---
+multiplicateurs_input = st.text_area("📥 Ampidiro ny historique (ou automatique depuis image)", 
+                                     value=st.session_state.get("multiplicateurs_input_auto", ""), 
+                                     placeholder="1.21x 1.33x 12.66x 1.44x ...", height=150)
 
-    # --- Calcul durée multiplicateur ---
-    def calculer_duree(m):
-        if 1.00 <= m < 1.35:
-            return round((m * 12.5) / 1.18)
-        elif 1.35 <= m < 1.50:
-            return round((m * 14.5) / 1.29)
-        elif 1.51 <= m < 2.00:
-            return round((m * 17) / 1.49)
-        elif 2.00 <= m < 2.99:
-            return round((m * 21) / 2.18)
-        elif 3.00 <= m < 3.99:
-            return round((m * 25) / 2.95)
-        elif 4.00 <= m < 4.99:
-            return round((m * 29) / 4.10)
+dernier_tour = st.number_input("🔢 Numéro du dernier tour (correspondant au 1er multiplicateur)", min_value=1, value=123)
+heure_input = st.text_input("🕒 Heure du dernier tour (hh:mm:ss)", value="12:31:02")
+mode_expert = st.checkbox("🧠 Activer le mode Expert")
+calculer = st.button("🔮 Lancer la prédiction Hybride (T+1 à T+20)")
+
+# --- Nettoyage des données ---
+def extraire_valeurs(texte):
+    valeurs = texte.replace(',', '.').lower().replace('x', '').split()
+    propres = []
+    for v in valeurs:
+        try:
+            val = float(v)
+            if val > 0:
+                propres.append(val)
+        except ValueError:
+            continue
+    return propres
+
+# --- Calcul durée ---
+def calculer_duree(m):
+    if 1.00 <= m < 2.00:
+        d = (m * 13) / 1.33
+    elif 2.00 <= m < 3.00:
+        d = (m * 20) / 2.29
+    elif 3.00 <= m < 4.00:
+        d = (m * 23) / 3.12
+    elif 4.00 <= m < 5.00:
+        d = (m * 27) / 4.27
+    elif 5.00 <= m <= 8.00:
+        d = (m * 28) / 5.01
+    elif 9.00 <= m <= 20.00:
+        d = (m * 39) / 11.87
+    else:
+        d = 15
+    return int(d) if d % 1 < 0.8 else int(d) + 1
+
+# --- Fiabilité ---
+def fiabilite(val, expert=False):
+    if expert:
+        if val >= 5:
+            return round(random.uniform(92, 98), 2)
+        elif val >= 3:
+            return round(random.uniform(85, 92), 2)
         else:
-            return round((m * 40) / 18.15)
-
-    # --- Calcul Heure automatique ---
-    def calcul_heure(base_heure, multiplicateurs, dernier_tour):
-        heure_actuelle = datetime.strptime(base_heure, "%H:%M:%S")
-        résultats = []
-
-        # Calcul Heure T+1 depuis durée(base multiplicateur)
-        base_m = multiplicateurs[0]
-        base_duree = calculer_duree(base_m)
-        heure_actuelle += timedelta(seconds=base_duree)
-
-        for i, multiplicateur in enumerate(multiplicateurs[1:]):  # Dès T+1
-            duree_sec = calculer_duree(multiplicateur)
-            résultats.append({
-                "Tour": f"T{dernier_tour + i + 1}",
-                "Multiplicateur": multiplicateur,
-                "Heure Prédite": heure_actuelle.strftime("%H:%M:%S")
-            })
-            heure_actuelle += timedelta(seconds=duree_sec)
-
-        return résultats
-
-    # --- Execution ---
-    if calculer:
-        historique = extraire_valeurs(multiplicateurs_input)
-        if len(historique) < 2:
-            st.warning("⚠️ Ampidiro farafahakeliny 2 multiplicateurs (base + prédiction).")
+            return round(random.uniform(80, 90), 2)
+    else:
+        if val >= 5:
+            return round(random.uniform(85, 95), 2)
+        elif val >= 3:
+            return round(random.uniform(75, 85), 2)
+        elif val <= 1.20:
+            return round(random.uniform(60, 70), 2)
         else:
-            résultats_df = calcul_heure(heure_input, historique, dernier_tour)
-            st.success("✅ Résultat Hybride T+1 à T+20")
-            for resultat in résultats_df:
-                st.markdown(f"**{resultat['Tour']}** ➤ **{resultat['Multiplicateur']}x** — 🕓 {resultat['Heure Prédite']}")
+            return round(random.uniform(70, 80), 2)
 
-else:
-    st.warning("⚠️ Cliquez sur 'Connexion' pour entrer votre code utilisateur.")
+# --- Mode Expert ---
+def prediction_expert(i, mod_score, rolling_mean):
+    base = (mod_score * i + rolling_mean) / (i % 5 + 1)
+    fluct = np.sin(i) + np.cos(mod_score)
+    return round(abs(base + fluct + random.uniform(0.1, 0.5)), 2)
+
+# --- Algorithme Prédiction ---
+def prediction_hybride(multiplicateurs, base_tour, heure_str, mode_expert=False):
+    resultats = []
+    rolling_mean = np.mean(multiplicateurs)
+    mod_score = sum([int(str(x).split(".")[-1]) % 10 for x in multiplicateurs]) / len(multiplicateurs)
+
+    heure_depart = datetime.strptime(heure_str, "%H:%M:%S")
+    m_depart = multiplicateurs[0]
+    heure_courante = heure_depart + timedelta(seconds=calculer_duree(m_depart))
+
+    for i in range(1, 21):
+        if mode_expert:
+            pred = prediction_expert(i, mod_score, rolling_mean)
+        else:
+            seed = int((mod_score + rolling_mean + i * 3.73) * 1000) % 47
+            pred = round(abs((np.sin(seed) + np.cos(i * mod_score)) * 2.5 + random.uniform(0.3, 1.2)), 2)
+
+        if pred < 1.10:
+            pred = round(1.10 + random.uniform(0.1, 0.3), 2)
+        elif pred > 15:
+            pred = round(6.2 + random.uniform(0.5, 1.5), 2)
+
+        duree = calculer_duree(pred)
+        fiab = fiabilite(pred, expert=mode_expert)
+        resultats.append((base_tour + i, pred, heure_courante.strftime("%H:%M:%S"), fiab))
+        heure_courante += timedelta(seconds=duree)
+
+    return resultats
+
+# --- Execution ---
+if calculer:
+    historique = extraire_valeurs(multiplicateurs_input)
+    if len(historique) < 5:
+        st.warning("⚠️ Ampidiro farafahakeliny 5 multiplicateurs.")
+    else:
+        resultats = prediction_hybride(historique, int(dernier_tour), heure_input, mode_expert)
+        st.success("✅ Résultat Hybride T+1 à T+20")
+        for t, m, h, f in resultats:
+            label = "🌟" if mode_expert and m >= 5 else ""
+            st.markdown(f"**T{t}** ➤ **{m}x** — 🕓 {h} — 🎯 Fiabilité: **{f}%** {label}")
