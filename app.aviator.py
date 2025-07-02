@@ -7,43 +7,59 @@ import math
 from PIL import Image
 import easyocr
 
-# --- Config page ---
+# --- Configuration ---
 st.set_page_config(page_title="🎯 Hybride Prediction Aviator by Mickael", layout="centered")
 st.title("🇲🇬 🎯 Hybride Prediction Aviator by Mickael")
 st.subheader("🤖 Stratégie Hybride : AI & Mode Expert + OCR automatique")
 
-# --- OCR Image Upload ---
+# --- Login System ---
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.markdown("## 🔐 Connectez-vous")
+    username = st.text_input("👤 Nom d'utilisateur")
+    password = st.text_input("🔑 Mot de passe", type="password")
+    if st.button("🔓 Connecter"):
+        if username == "admin" and password == "mickael123":
+            st.session_state.authenticated = True
+            st.success("✅ Connecté avec succès!")
+        else:
+            st.error("❌ Identifiants incorrects.")
+    st.stop()
+
+# --- Upload Image OCR ---
 st.markdown("### 📸 Upload image misy historique (capture écran)")
 uploaded_image = st.file_uploader("🖼️ Ampidiro capture de l'historique", type=["png", "jpg", "jpeg"])
 
 if uploaded_image is not None:
-    image = Image.open(uploaded_image)
-    st.image(image, caption="🖼️ Sary nampidirina", use_column_width=True)
+    try:
+        image = Image.open(uploaded_image)
+        st.image(image, caption="🖼️ Sary nampidirina", use_column_width=True)
 
-    # OCR
-    reader = easyocr.Reader(['en'], gpu=False)
-    result = reader.readtext(np.array(image), detail=0)
+        reader = easyocr.Reader(['en'], gpu=False)
+        result = reader.readtext(np.array(image), detail=0)
+        historique_from_image = " ".join(result)
 
-    # Join all OCR results into one string
-    historique_from_image = " ".join(result)
+        st.session_state['multiplicateurs_input_auto'] = historique_from_image
+        st.success("✅ OCR vita: texte nivoaka avy amin'ny image")
+        st.text_area("📜 Résultat OCR (azo ovaina raha ilaina)", 
+                     value=historique_from_image, height=100, key="ocr_result")
 
-    # Show result
-    st.session_state['multiplicateurs_input_auto'] = historique_from_image
-    st.success("✅ OCR vita: texte nivoaka avy amin'ny image")
-    st.text_area("📜 Résultat OCR (azo ovaina raha ilaina)", 
-                 value=historique_from_image, height=100, key="ocr_result")
+    except Exception as e:
+        st.error(f"❌ OCR Error: {e}")
 
 # --- Fidirana angona texte ---
-multiplicateurs_input = st.text_area("📥 Ampidiro ny historique (ou automatique depuis image)", 
+multiplicateurs_input = st.text_area("📥 Ampidiro ny historique (ou image)", 
                                      value=st.session_state.get("multiplicateurs_input_auto", ""), 
                                      placeholder="1.21x 1.33x 12.66x 1.44x ...", height=150)
 
-dernier_tour = st.number_input("🔢 Numéro du dernier tour (correspondant au 1er multiplicateur)", min_value=1, value=123)
-heure_input = st.text_input("🕒 Heure du dernier tour (hh:mm:ss)", value="12:31:02")
+dernier_tour = st.number_input("🔢 Numéro du dernier tour (correspondant au 1er multiplicateur)", min_value=1, value=100)
+heure_input = st.text_input("🕒 Heure du dernier tour (hh:mm:ss)", value="12:00:00")
 mode_expert = st.checkbox("🧠 Activer le mode Expert")
-calculer = st.button("🔮 Lancer la prédiction Hybride (T+1 à T+20)")
+calculer = st.button("🔮 Lancer la préd+1 à T+20)")
 
-# --- Nettoyage des données ---
+# --- Fonctions ---
 def extraire_valeurs(texte):
     valeurs = texte.replace(',', '.').lower().replace('x', '').split()
     propres = []
@@ -56,7 +72,6 @@ def extraire_valeurs(texte):
             continue
     return propres
 
-# --- Calcul durée ---
 def calculer_duree(m):
     if 1.00 <= m < 2.00:
         d = (m * 13) / 1.33
@@ -74,7 +89,6 @@ def calculer_duree(m):
         d = 15
     return int(d) if d % 1 < 0.8 else int(d) + 1
 
-# --- Fiabilité ---
 def fiabilite(val, expert=False):
     if expert:
         if val >= 5:
@@ -93,21 +107,23 @@ def fiabilite(val, expert=False):
         else:
             return round(random.uniform(70, 80), 2)
 
-# --- Mode Expert ---
 def prediction_expert(i, mod_score, rolling_mean):
     base = (mod_score * i + rolling_mean) / (i % 5 + 1)
     fluct = np.sin(i) + np.cos(mod_score)
     return round(abs(base + fluct + random.uniform(0.1, 0.5)), 2)
 
-# --- Algorithme Prédiction ---
 def prediction_hybride(multiplicateurs, base_tour, heure_str, mode_expert=False):
     resultats = []
     rolling_mean = np.mean(multiplicateurs)
     mod_score = sum([int(str(x).split(".")[-1]) % 10 for x in multiplicateurs]) / len(multiplicateurs)
 
-    heure_depart = datetime.strptime(heure_str, "%H:%M:%S")
-    m_depart = multiplicateurs[0]
-    heure_courante = heure_depart + timedelta(seconds=calculer_duree(m_depart))
+    try:
+        heure_depart = datetime.strptime(heure_str, "%H:%M:%S")
+    except ValueError:
+        st.error("❌ Format ora diso! Tokony ho hh:mm:ss")
+        return []
+
+    heure_courante = heure_depart + timedelta(seconds=calculer_duree(multiplicateurs[0]))
 
     for i in range(1, 21):
         if mode_expert:
@@ -116,11 +132,7 @@ def prediction_hybride(multiplicateurs, base_tour, heure_str, mode_expert=False)
             seed = int((mod_score + rolling_mean + i * 3.73) * 1000) % 47
             pred = round(abs((np.sin(seed) + np.cos(i * mod_score)) * 2.5 + random.uniform(0.3, 1.2)), 2)
 
-        if pred < 1.10:
-            pred = round(1.10 + random.uniform(0.1, 0.3), 2)
-        elif pred > 15:
-            pred = round(6.2 + random.uniform(0.5, 1.5), 2)
-
+        pred = max(1.10, min(pred, 15))
         duree = calculer_duree(pred)
         fiab = fiabilite(pred, expert=mode_expert)
         resultats.append((base_tour + i, pred, heure_courante.strftime("%H:%M:%S"), fiab))
@@ -135,7 +147,8 @@ if calculer:
         st.warning("⚠️ Ampidiro farafahakeliny 5 multiplicateurs.")
     else:
         resultats = prediction_hybride(historique, int(dernier_tour), heure_input, mode_expert)
-        st.success("✅ Résultat Hybride T+1 à T+20")
-        for t, m, h, f in resultats:
-            label = "🌟" if mode_expert and m >= 5 else ""
-            st.markdown(f"**T{t}** ➤ **{m}x** — 🕓 {h} — 🎯 Fiabilité: **{f}%** {label}")
+        if resultats:
+            st.success("✅ Résultat Hybride T+1 à T+20")
+            for t, m, h, f in resultats:
+                label = "🌟" if mode_expert and m >= 5 else ""
+                st.markdown(f"**T{t}** ➤ **{m}x** — 🕓 {h} — 🎯 Fiabilité: **{f}%** {label}")
