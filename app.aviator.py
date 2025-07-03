@@ -8,7 +8,7 @@ import easyocr
 st.set_page_config(page_title="🎯 Hybride Prediction Aviator by Mickael", layout="centered")
 st.title("🇲🇬 🎯 Hybride Prediction Aviator by Mickael")
 
-# --- Interface de Connexion ---
+# --- Connexion simplifiée ---
 st.markdown("## 🔐 Connexion")
 username = st.text_input("👤 Nom utilisateur")
 password = st.text_input("🔑 Code secret", type="password")
@@ -16,40 +16,41 @@ password = st.text_input("🔑 Code secret", type="password")
 if username == "admin" and password == "1234":
     st.success("✅ Connexion réussie!")
 
-    # --- Upload OCR Image ---
-    st.markdown("### 📸 Upload image misy historique")
-    uploaded_image = st.file_uploader("🖼️ Ampidiro capture de l'historique", type=["png", "jpg", "jpeg"])
+    # --- OCR Upload avec correction automatique ---
+    st.markdown("### 📸 Image Historique (OCR automatique avec nettoyage)")
+    uploaded_image = st.file_uploader("🖼️ Ampidiro capture historique", type=["png", "jpg", "jpeg"])
+
+    def corriger_ocr(raw_text):
+        text = raw_text.replace("O", "0").replace("o", "0")
+        text = text.replace("X", "x").replace("x", "x")
+        return text
 
     if uploaded_image is not None:
-        try:
-            image = Image.open(uploaded_image)
-            st.image(image, caption="🖼️ Sary nampidirina", use_column_width=True)
+        with st.spinner("🔍 Traitement OCR..."):
+            try:
+                image = Image.open(uploaded_image)
+                st.image(image, caption="🖼️ Sary nampidirina", use_column_width=True)
+                reader = easyocr.Reader(['en'], gpu=False)
+                result = reader.readtext(np.array(image), detail=0)
+                texte_ocr = corriger_ocr(" ".join(result))
+                st.session_state['ocr_result'] = texte_ocr
+                st.success("✅ OCR sy correction automatique vita.")
+            except Exception as e:
+                st.error(f"❌ OCR Error: {e}")
 
-            reader = easyocr.Reader(['en'], gpu=False)
-            result = reader.readtext(np.array(image), detail=0)
-            texte_ocr = " ".join(result)
+    # --- Zone unique pour historique (auto + manokana)
+    multiplicateurs_input = st.text_area("📥 Historique (OCR automatique na tànana)", 
+        value=st.session_state.get("ocr_result", ""), 
+        placeholder="Ex: 1.21x 1.33x 12.66x 1.44x ...", height=150)
 
-            st.session_state['ocr_result'] = texte_ocr
-            st.success("✅ OCR vita: texte nivoaka avy amin'ny image")
-            st.text_area("📜 Résultat OCR (azo ovaina raha ilaina)", 
-                         value=texte_ocr, height=100, key="ocr_result_affichage")
-
-        except Exception as e:
-            st.error(f"❌ OCR Error: {e}")
-
-    # --- Fidirana angona texte manokana ---
-    multiplicateurs_input = st.text_area(
-        "📥 Ampidiro ny historique (ex: 1.21x 1.33x 12.66x ...)",
-        value=st.session_state.get("ocr_result", ""),
-        placeholder="1.21x 1.33x 12.66x 1.44x ...", height=150
-    )
-
+    # --- Paramètres prédiction ---
     dernier_tour = st.number_input("🔢 Numéro du dernier tour", min_value=1, value=123)
     heure_input = st.text_input("🕒 Heure du dernier tour (hh:mm:ss)", value="20:30:05")
     calculer = st.button("🔮 Lancer la prédiction")
 
-    # --- Fonctions de traitement ---
+    # --- Fonctions ---
     def extraire_valeurs(texte):
+        texte = corriger_ocr(texte)
         valeurs = texte.replace(",", ".").lower().replace("x", "").split()
         propres = []
         for v in valeurs:
@@ -100,7 +101,7 @@ if username == "admin" and password == "1234":
     if calculer:
         historique = extraire_valeurs(multiplicateurs_input)
         if len(historique) < 2:
-            st.warning("⚠️ Ampidiro farafahakeliny 2 multiplicateurs.")
+            st.warning("⚠️ Vérifiez l’historique: angona diso format na tsy ampy.")
         else:
             try:
                 résultats_df = calcul_heure(heure_input, historique, dernier_tour)
@@ -111,4 +112,4 @@ if username == "admin" and password == "1234":
                 st.error(f"❌ Olana tamin'ny prediction: {e}")
 
 else:
-    st.warning("⚠️ Mba ampidiro ny anarana sy mot de passe.")
+    st.warning("⚠️ Ampidiro ny anarana sy mot de passe.")
