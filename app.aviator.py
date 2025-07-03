@@ -79,6 +79,10 @@ if username == "admin" and password == "1234":
             return round((m * 40) / 18.15)
 
     def calcul_heure(base_heure, multiplicateurs, dernier_tour):
+        if len(multiplicateurs) < 41:
+            st.warning("⚠️ Mila farafahakeliny 41 multiplicateurs ho an'ny T+40.")
+            return []
+
         heure_actuelle = datetime.strptime(base_heure, "%H:%M:%S")
         résultats = []
 
@@ -86,7 +90,7 @@ if username == "admin" and password == "1234":
         base_duree = calculer_duree(base_m)
         heure_actuelle += timedelta(seconds=base_duree)
 
-        for i, multiplicateur in enumerate(multiplicateurs[1:]):
+        for i, multiplicateur in enumerate(multiplicateurs[1:41]):  # Jusqu'à T+40
             duree_sec = calculer_duree(multiplicateur)
             résultats.append({
                 "Tour": f"T{dernier_tour + i + 1}",
@@ -100,12 +104,12 @@ if username == "admin" and password == "1234":
     # --- Execution ---
     if calculer:
         historique = extraire_valeurs(multiplicateurs_input)
-        if len(historique) < 2:
-            st.warning("⚠️ Vérifiez l’historique: angona diso format na tsy ampy.")
+        if len(historique) < 41:
+            st.warning("⚠️ Vérifiez l’historique: farafahakeliny 41 multiplicateurs ilaina ho an'ny T+40.")
         else:
             try:
                 résultats_df = calcul_heure(heure_input, historique, dernier_tour)
-                st.success("✅ Résultat Hybride T+1 à T+20")
+                st.success("✅ Résultat Hybride T+1 à T+40")
                 for resultat in résultats_df:
                     st.markdown(f"**{resultat['Tour']}** ➤ **{resultat['Multiplicateur']}x** — 🕓 {resultat['Heure Prédite']}")
             except Exception as e:
