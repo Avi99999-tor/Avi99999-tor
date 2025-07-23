@@ -1,7 +1,2 @@
 
-streamlit
-numpy
-scikit-learn
-Pillow
-easyocr
-matplotlib
+pip install streamlit pillow pytesseract
