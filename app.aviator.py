@@ -1,119 +1,55 @@
 import streamlit as st
-from datetime import datetime, timedelta
 from PIL import Image
-import numpy as np
-import easyocr
+import pytesseract
+import re
 
-# --- Configuration ---
-st.set_page_config(page_title="🎯 Hybride Prediction Aviator by Mickael", layout="centered")
-st.title("🇲🇬 🎯 Hybride Prediction Aviator by Mickael")
+# Function to extract the last digit after the decimal
+def extract_decimal_digit(odd_str):
+    match = re.search(r"\d+\.(\d)", odd_str)
+    if match:
+        return match.group(1)
+    return None
 
-# --- Connexion simplifiée ---
-st.markdown("## 🔐 Connexion")
-username = st.text_input("👤 Nom utilisateur")
-password = st.text_input("🔑 Code secret", type="password")
+# OCR processing for Over & Under
+def process_image(image):
+    text = pytesseract.image_to_string(image)
+    odds = re.findall(r"\d+\.\d+", text)
+    if len(odds) >= 2:
+        over = extract_decimal_digit(odds[0])
+        under = extract_decimal_digit(odds[1])
+        return over, under
+    return None, None
 
-if username == "admin" and password == "1234":
-    st.success("✅ Connexion réussie!")
+# Streamlit Interface
+st.set_page_config(page_title="Mod 10 Matcher", layout="centered")
+st.title("⚽️ Match Comparator — Mod 10 stratégie")
+st.markdown("**Ampidiro captures d'écran match 1 sy match 2 misy Over sy Under 1.5.**")
 
-    # --- OCR Upload avec correction automatique ---
-    st.markdown("### 📸 Image Historique (OCR automatique avec nettoyage)")
-    uploaded_image = st.file_uploader("🖼️ Ampidiro capture historique", type=["png", "jpg", "jpeg"])
+col1, col2 = st.columns(2)
+with col1:
+    img1 = st.file_uploader("📥 Capture Match 1", type=["png", "jpg", "jpeg"])
+with col2:
+    img2 = st.file_uploader("📥 Capture Match 2", type=["png", "jpg", "jpeg"])
 
-    def corriger_ocr(raw_text):
-        text = raw_text.replace("O", "0").replace("o", "0")
-        text = text.replace("X", "x").replace("x", "x")
-        return text
+if img1 and img2:
+    over1, under1 = process_image(Image.open(img1))
+    over2, under2 = process_image(Image.open(img2))
 
-    if uploaded_image is not None:
-        with st.spinner("🔍 Traitement OCR..."):
-            try:
-                image = Image.open(uploaded_image)
-                st.image(image, caption="🖼️ Sary nampidirina", use_column_width=True)
-                reader = easyocr.Reader(['en'], gpu=False)
-                result = reader.readtext(np.array(image), detail=0)
-                texte_ocr = corriger_ocr(" ".join(result))
-                st.session_state['ocr_result'] = texte_ocr
-                st.success("✅ OCR sy correction automatique vita.")
-            except Exception as e:
-                st.error(f"❌ OCR Error: {e}")
+    if over1 and under1 and over2 and under2:
+        mod1 = over1 + under1
+        mod2 = over2 + under2
 
-    # --- Zone unique pour historique (auto + manokana)
-    multiplicateurs_input = st.text_area("📥 Historique (OCR automatique na tànana)", 
-        value=st.session_state.get("ocr_result", ""), 
-        placeholder="Ex: 1.21x 1.33x 12.66x 1.44x ...", height=150)
+        st.markdown("---")
+        st.subheader("🔎 Résultats")
+        st.write(f"🎯 Match 1 Mod10 : {mod1}")
+        st.write(f"🎯 Match 2 Mod10 : {mod2}")
 
-    # --- Paramètres prédiction ---
-    dernier_tour = st.number_input("🔢 Numéro du dernier tour", min_value=1, value=123)
-    heure_input = st.text_input("🕒 Heure du dernier tour (hh:mm:ss)", value="20:30:05")
-    calculer = st.button("🔮 Lancer la prédiction")
-
-    # --- Fonctions ---
-    def extraire_valeurs(texte):
-        texte = corriger_ocr(texte)
-        valeurs = texte.replace(",", ".").lower().replace("x", "").split()
-        propres = []
-        for v in valeurs:
-            try:
-                val = float(v)
-                if val > 0:
-                    propres.append(val)
-            except:
-                continue
-        return propres
-
-    def calculer_duree(m):
-        if 1.00 <= m < 1.35:
-            return round((m * 12.5) / 1.18)
-        elif 1.35 <= m < 1.50:
-            return round((m * 14.5) / 1.29)
-        elif 1.51 <= m < 2.00:
-            return round((m * 17) / 1.49)
-        elif 2.00 <= m < 2.99:
-            return round((m * 21) / 2.18)
-        elif 3.00 <= m < 3.99:
-            return round((m * 25) / 2.95)
-        elif 4.00 <= m < 4.99:
-            return round((m * 29) / 4.10)
+        if mod1 == mod2:
+            st.success(f"✅ Résultat ==== {mod1} match 1, {mod2} match 2")
+            st.markdown("➡️ *Ohatra*: Fulham vs Chelsea = Arsenal vs Brighton")
         else:
-            return round((m * 40) / 18.15)
-
-    def calcul_heure(base_heure, multiplicateurs, dernier_tour):
-        if len(multiplicateurs) < 41:
-            st.warning("⚠️ Mila farafahakeliny 41 multiplicateurs ho an'ny T+40.")
-            return []
-
-        heure_actuelle = datetime.strptime(base_heure, "%H:%M:%S")
-        résultats = []
-
-        base_m = multiplicateurs[0]
-        base_duree = calculer_duree(base_m)
-        heure_actuelle += timedelta(seconds=base_duree)
-
-        for i, multiplicateur in enumerate(multiplicateurs[1:41]):  # Jusqu'à T+40
-            duree_sec = calculer_duree(multiplicateur)
-            résultats.append({
-                "Tour": f"T{dernier_tour + i + 1}",
-                "Multiplicateur": multiplicateur,
-                "Heure Prédite": heure_actuelle.strftime("%H:%M:%S")
-            })
-            heure_actuelle += timedelta(seconds=duree_sec)
-
-        return résultats
-
-    # --- Execution ---
-    if calculer:
-        historique = extraire_valeurs(multiplicateurs_input)
-        if len(historique) < 41:
-            st.warning("⚠️ Vérifiez l’historique: farafahakeliny 41 multiplicateurs ilaina ho an'ny T+40.")
-        else:
-            try:
-                résultats_df = calcul_heure(heure_input, historique, dernier_tour)
-                st.success("✅ Résultat Hybride T+1 à T+40")
-                for resultat in résultats_df:
-                    st.markdown(f"**{resultat['Tour']}** ➤ **{resultat['Multiplicateur']}x** — 🕓 {resultat['Heure Prédite']}")
-            except Exception as e:
-                st.error(f"❌ Olana tamin'ny prediction: {e}")
-
+            st.error("❌ Tsy mitovy ny résultat — Mampidira match hafa azafady.")
+    else:
+        st.warning("⚠️ Tsy nahazo tsara Over/Under ny OCR. Hamarino ny sary.")
 else:
-    st.warning("⚠️ Ampidiro ny anarana sy mot de passe.")
+    st.info("🔄 Miandry ny sary roa ho alefa...")
